@@ -1,6 +1,9 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Search, Plus, UserCheck, Calendar, DollarSign, Mail, Phone, Briefcase, CheckCircle2, XCircle, Zap } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, Plus, UserCheck, Calendar, DollarSign, Mail, Phone, Briefcase, Edit, Eye, X, FileDown, Building2, MapPin, Users } from 'lucide-react';
 import { CustomSelect } from './ui/CustomSelect';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { exportToCSV } from '../utils/csvExport';
+import { toast } from 'sonner';
 
 // Custom Tailwind classes for dark glassmorphism effect (matching InvoicesPage)
 const glassStatCard = "bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-lg";
@@ -21,17 +24,6 @@ const paginationButtonStyle = {
     transform: 'translateY(1px)',
   }
 };
-
-// Toast hook for user feedback
-function useToasts() {
-  const [toasts, setToasts] = useState<{id: string, type: "success"|"error"|"info", text: string}[]>([]);
-  const push = useCallback((t: { type: "success"|"error"|"info", text: string }) => {
-    const id = String(Date.now()) + Math.random();
-    setToasts((s) => [...s, { id, ...t }]);
-    setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), 3000);
-  }, []);
-  return { toasts, push };
-}
 
 const mockEmployees = [
   { id: 'EMP-001', name: 'Ahmed Hassan', email: 'ahmed.h@company.com', phone: '+966 50 123 4567', position: 'Software Engineer', department: 'IT', salary: '$5,500', joinDate: '2022-01-15', status: 'active' },
@@ -71,7 +63,11 @@ export function EmployeesPage() {
   const [filterDepartment, setFilterDepartment] = useState('all');
   const [currentPage, setCurrentPage] = useState(1);
   const employeesPerPage = 10;
-  const { toasts, push: pushToast } = useToasts();
+  const [addModalOpen, setAddModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [detailDrawerOpen, setDetailDrawerOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<typeof mockEmployees[0] | null>(null);
+  const [processing, setProcessing] = useState(false);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -104,7 +100,7 @@ export function EmployeesPage() {
   const handlePageChange = (page: number) => {
     if (page !== currentPage) {
       setCurrentPage(page);
-      pushToast({ type: "success", text: `Switched to page ${page}` });
+      toast.success(`Switched to page ${page}`);
     }
   };
 
@@ -112,9 +108,9 @@ export function EmployeesPage() {
     if (currentPage > 1) {
       const newPage = currentPage - 1;
       setCurrentPage(newPage);
-      pushToast({ type: "info", text: `Navigated to page ${newPage}` });
+      toast.info(`Navigated to page ${newPage}`);
     } else {
-      pushToast({ type: "error", text: "Already on the first page" });
+      toast.error("Already on the first page");
     }
   };
 
@@ -122,30 +118,44 @@ export function EmployeesPage() {
     if (currentPage < totalPages) {
       const newPage = currentPage + 1;
       setCurrentPage(newPage);
-      pushToast({ type: "info", text: `Navigated to page ${newPage}` });
+      toast.info(`Navigated to page ${newPage}`);
     } else {
-      pushToast({ type: "error", text: "Already on the last page" });
+      toast.error("Already on the last page");
+    }
+  };
+
+  const handleExportCSV = () => {
+    const headers = ['ID', 'Name', 'Email', 'Phone', 'Position', 'Department', 'Salary', 'Join Date', 'Status'];
+    const rows = filteredEmployees.map(emp => [
+      emp.id, emp.name, emp.email, emp.phone, emp.position, emp.department, emp.salary, emp.joinDate, emp.status
+    ]);
+    exportToCSV('employees_export', headers, rows);
+    toast.success('Employees exported to CSV');
+  };
+
+  const handleViewEmployee = (employee: typeof mockEmployees[0]) => {
+    setSelectedEmployee(employee);
+    setDetailDrawerOpen(true);
+  };
+
+  const handleEditEmployee = (employee: typeof mockEmployees[0]) => {
+    setSelectedEmployee(employee);
+    setEditModalOpen(true);
+  };
+
+  const handleTerminateEmployee = (employee: typeof mockEmployees[0]) => {
+    setSelectedEmployee(employee);
+    if (confirm(`Are you sure you want to terminate ${employee.name}? This action cannot be undone.`)) {
+      setProcessing(true);
+      setTimeout(() => {
+        setProcessing(false);
+        toast.success(`${employee.name} has been terminated`);
+      }, 800);
     }
   };
 
   return (
     <div>
-      {/* Toast Notifications */}
-      <div className="fixed right-2 sm:right-4 top-4 z-50 flex flex-col gap-3 max-w-[calc(100vw-1rem)] sm:max-w-none">
-        {toasts.map((t) => (
-          <div key={t.id} role="alert" className={`w-full sm:w-80 p-3 rounded-lg shadow-2xl flex items-center gap-3 border transition-all duration-300 glass-stat-card ${
-            t.type === "success" 
-              ? "bg-green-500/20 border-green-400/30 text-green-300" 
-              : t.type === "error" 
-              ? "bg-red-500/20 border-red-400/30 text-red-300" 
-              : "bg-blue-500/20 border-blue-400/30 text-blue-300"
-          }`}>
-             {t.type === "success" ? <CheckCircle2 className="w-4 h-4 flex-shrink-0"/> : t.type === "error" ? <XCircle className="w-4 h-4 flex-shrink-0"/> : <Zap className="w-4 h-4 flex-shrink-0"/>}
-             <span className="text-xs font-medium">{t.text}</span>
-          </div>
-        ))}
-      </div>
-
       {/* Header - professional employees icon + label */}
       <div className="mb-8">
         <div className="glass-card rounded-2xl shadow-2xl overflow-hidden">
@@ -258,6 +268,7 @@ export function EmployeesPage() {
               />
               
               <button 
+                onClick={() => setAddModalOpen(true)}
                 className="w-[200px] px-6 py-2.5 text-white rounded-lg flex items-center justify-center gap-2 text-sm font-semibold transition-all h-auto min-h-[42px]"
                 style={{
                   background: 'rgba(59, 130, 246, 0.15)',
@@ -281,6 +292,30 @@ export function EmployeesPage() {
                 <Plus className="w-4 h-4" />
                 Add Employee
               </button>
+
+              <button
+                onClick={handleExportCSV}
+                className="px-4 py-2.5 text-white rounded-lg flex items-center justify-center gap-2 text-sm font-semibold transition-all h-auto min-h-[42px]"
+                style={{
+                  background: 'rgba(34, 197, 94, 0.15)',
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(34, 197, 94, 0.3)',
+                  boxShadow: '0 4px 12px 0 rgba(34, 197, 94, 0.2), inset 0 1px 1px 0 rgba(255, 255, 255, 0.15)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(34, 197, 94, 0.25)';
+                  e.currentTarget.style.borderColor = 'rgba(34, 197, 94, 0.4)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'rgba(34, 197, 94, 0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(34, 197, 94, 0.3)';
+                  e.currentTarget.style.transform = '';
+                }}
+              >
+                <FileDown className="w-4 h-4" />
+                Export CSV
+              </button>
             </div>
           </div>
         </div>
@@ -297,6 +332,7 @@ export function EmployeesPage() {
                 <th className="px-6 py-3 text-left text-xs text-white/70 uppercase tracking-wider">Salary</th>
                 <th className="px-6 py-3 text-left text-xs text-white/70 uppercase tracking-wider">Join Date</th>
                 <th className="px-6 py-3 text-left text-xs text-white/70 uppercase tracking-wider">Status</th>
+                <th className="px-6 py-3 text-left text-xs text-white/70 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/8">
@@ -347,8 +383,44 @@ export function EmployeesPage() {
                       {employee.status.replace('-', ' ')}
                     </span>
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleViewEmployee(employee)}
+                        className="p-2 hover:bg-white/10 rounded-lg transition text-white/80 hover:text-white"
+                        title="View Details"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleEditEmployee(employee)}
+                        className="p-2 hover:bg-white/10 rounded-lg transition text-white/80 hover:text-white"
+                        title="Edit Employee"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleTerminateEmployee(employee)}
+                        className="p-2 hover:bg-red-500/20 rounded-lg transition text-white/80 hover:text-red-300"
+                        title="Terminate Employee"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
+              {paginatedEmployees.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <Users className="w-12 h-12 text-white/30" />
+                      <p className="text-white/60">No employees found</p>
+                      <p className="text-sm text-white/40">Try adjusting your search or filter</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -507,6 +579,283 @@ export function EmployeesPage() {
           </div>
         </div>
       </div>
+
+      {/* Department Analytics */}
+      <div className="mt-8 glass-card p-6 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center border border-white/20">
+              <Building2 className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white mb-1 text-sm">Department Analytics</h3>
+              <p className="text-xs text-white/60">Employee distribution by department</p>
+            </div>
+          </div>
+        </div>
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={[
+              { department: 'IT', count: 42 },
+              { department: 'Sales', count: 35 },
+              { department: 'Finance', count: 28 },
+              { department: 'HR', count: 18 },
+              { department: 'Marketing', count: 22 },
+              { department: 'Operations', count: 11 },
+            ]}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.3)" vertical={false} />
+              <XAxis dataKey="department" tickLine={false} axisLine={false} tick={{ fill: "rgba(226,232,240,0.9)", fontSize: 11 }} />
+              <YAxis tickLine={false} axisLine={false} tick={{ fill: "rgba(226,232,240,0.9)", fontSize: 11 }} />
+              <Tooltip contentStyle={{ backgroundColor: "#020617", borderRadius: 8, border: "1px solid rgba(148,163,184,0.6)", fontSize: 11 }} labelStyle={{ color: "#e5e7eb" }} />
+              <Bar dataKey="count" radius={[6, 6, 0, 0]} fill="#38bdf8" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* Payroll Summary Card */}
+      <div className="mt-6 glass-card p-6 rounded-xl">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-white/10 rounded-lg flex items-center justify-center border border-white/20">
+              <DollarSign className="w-4 h-4 text-white" />
+            </div>
+            <div>
+              <h3 className="text-white mb-1 text-sm">Payroll Summary</h3>
+              <p className="text-xs text-white/60">Monthly payroll breakdown</p>
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+            <p className="text-white/60 text-xs mb-1">Total Payroll</p>
+            <p className="text-white text-xl font-semibold">$912,450</p>
+            <p className="text-green-300 text-xs mt-1">+5.2% from last month</p>
+          </div>
+          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+            <p className="text-white/60 text-xs mb-1">Average per Employee</p>
+            <p className="text-white text-xl font-semibold">$5,850</p>
+            <p className="text-green-300 text-xs mt-1">+2.1% from last month</p>
+          </div>
+          <div className="bg-white/5 rounded-lg p-4 border border-white/10">
+            <p className="text-white/60 text-xs mb-1">Pending Bonuses</p>
+            <p className="text-white text-xl font-semibold">$45,200</p>
+            <p className="text-yellow-300 text-xs mt-1">3 employees pending</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Add Employee Modal */}
+      {addModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setAddModalOpen(false)} />
+          <div className="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white text-lg font-semibold">Add New Employee</h3>
+              <button onClick={() => setAddModalOpen(false)} className="text-white/60 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              setProcessing(true);
+              setTimeout(() => {
+                setProcessing(false);
+                setAddModalOpen(false);
+                toast.success('Employee added successfully');
+              }, 800);
+            }} className="space-y-4">
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Full Name</label>
+                <input type="text" required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" placeholder="Enter full name" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Email</label>
+                <input type="email" required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" placeholder="Enter email address" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Phone</label>
+                <input type="tel" required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" placeholder="+966 XX XXX XXXX" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Position</label>
+                <input type="text" required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" placeholder="Job title" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Department</label>
+                <select required className="w-full px-4 py-2 glass-input text-white rounded-lg">
+                  <option value="">Select department</option>
+                  <option value="IT">IT</option>
+                  <option value="Human Resources">Human Resources</option>
+                  <option value="Sales">Sales</option>
+                  <option value="Finance">Finance</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Operations">Operations</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Salary</label>
+                <input type="text" required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" placeholder="$0,000" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Join Date</label>
+                <input type="date" required className="w-full px-4 py-2 glass-input text-white rounded-lg" />
+              </div>
+              <button
+                type="submit"
+                disabled={processing}
+                className="w-full px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-lg text-white font-semibold transition disabled:opacity-50"
+              >
+                {processing ? 'Adding...' : 'Add Employee'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Employee Detail Drawer */}
+      {detailDrawerOpen && selectedEmployee && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDetailDrawerOpen(false)} />
+          <div className="relative w-full max-w-md bg-white/10 backdrop-blur-md border-l border-white/20 p-6 overflow-y-auto max-h-[90vh]">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white text-lg font-semibold">Employee Details</h3>
+              <button onClick={() => setDetailDrawerOpen(false)} className="text-white/60 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="w-20 h-20 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white text-2xl font-bold border border-white/20">
+                  {selectedEmployee.name.charAt(0)}
+                </div>
+                <div>
+                  <h4 className="text-white text-xl font-semibold">{selectedEmployee.name}</h4>
+                  <p className="text-white/60 text-sm">{selectedEmployee.position}</p>
+                  <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs border ${getStatusColor(selectedEmployee.status)} capitalize mt-2`}>
+                    {selectedEmployee.status.replace('-', ' ')}
+                  </span>
+                </div>
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3 text-white/80">
+                  <Mail className="w-4 h-4" />
+                  <span>{selectedEmployee.email}</span>
+                </div>
+                <div className="flex items-center gap-3 text-white/80">
+                  <Phone className="w-4 h-4" />
+                  <span>{selectedEmployee.phone}</span>
+                </div>
+                <div className="flex items-center gap-3 text-white/80">
+                  <MapPin className="w-4 h-4" />
+                  <span>Riyadh, Saudi Arabia</span>
+                </div>
+                <div className="flex items-center gap-3 text-white/80">
+                  <Building2 className="w-4 h-4" />
+                  <span>{selectedEmployee.department}</span>
+                </div>
+                <div className="flex items-center gap-3 text-white/80">
+                  <DollarSign className="w-4 h-4" />
+                  <span>{selectedEmployee.salary} / month</span>
+                </div>
+                <div className="flex items-center gap-3 text-white/80">
+                  <Calendar className="w-4 h-4" />
+                  <span>Joined: {selectedEmployee.joinDate}</span>
+                </div>
+              </div>
+              <div className="pt-4 border-t border-white/10">
+                <h5 className="text-white text-sm font-semibold mb-3">Performance Summary</h5>
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-white/60">Attendance</span>
+                    <span className="text-green-300">98%</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-white/60">Projects Completed</span>
+                    <span className="text-white">12</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-white/60">Performance Rating</span>
+                    <span className="text-blue-300">4.5/5.0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Employee Modal */}
+      {editModalOpen && selectedEmployee && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditModalOpen(false)} />
+          <div className="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white text-lg font-semibold">Edit Employee</h3>
+              <button onClick={() => setEditModalOpen(false)} className="text-white/60 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              setProcessing(true);
+              setTimeout(() => {
+                setProcessing(false);
+                setEditModalOpen(false);
+                toast.success('Employee updated successfully');
+              }, 800);
+            }} className="space-y-4">
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Full Name</label>
+                <input type="text" defaultValue={selectedEmployee.name} required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Email</label>
+                <input type="email" defaultValue={selectedEmployee.email} required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Phone</label>
+                <input type="tel" defaultValue={selectedEmployee.phone} required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Position</label>
+                <input type="text" defaultValue={selectedEmployee.position} required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Department</label>
+                <select defaultValue={selectedEmployee.department} required className="w-full px-4 py-2 glass-input text-white rounded-lg">
+                  <option value="">Select department</option>
+                  <option value="IT">IT</option>
+                  <option value="Human Resources">Human Resources</option>
+                  <option value="Sales">Sales</option>
+                  <option value="Finance">Finance</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Operations">Operations</option>
+                </select>
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Salary</label>
+                <input type="text" defaultValue={selectedEmployee.salary} required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" />
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Status</label>
+                <select defaultValue={selectedEmployee.status} required className="w-full px-4 py-2 glass-input text-white rounded-lg">
+                  <option value="active">Active</option>
+                  <option value="on-leave">On Leave</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+              <button
+                type="submit"
+                disabled={processing}
+                className="w-full px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-lg text-white font-semibold transition disabled:opacity-50"
+              >
+                {processing ? 'Updating...' : 'Update Employee'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

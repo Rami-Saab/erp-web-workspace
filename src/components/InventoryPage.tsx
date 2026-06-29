@@ -285,12 +285,6 @@ export function InventoryPage() {
     return `PRD-${String(maxId + 1).padStart(3, "0")}`;
   };
 
-  const getStatusFromStock = (stock: number, minStock: number) => {
-    if (stock === 0) return "out-of-stock";
-    if (stock <= minStock) return "low-stock";
-    return "in-stock";
-  };
-
   const handleOpenNewProductModal = () => {
     setProductModalMode("create");
     setProductToEdit(null);
@@ -919,6 +913,15 @@ export function InventoryPage() {
                     </div>
                   </div>
                 ))}
+                {filteredInventory.length === 0 && (
+                  <div className="col-span-full px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <Package className="w-12 h-12 text-white/30" />
+                      <p className="text-white/60">No products found</p>
+                      <p className="text-sm text-white/40">Try adjusting your search or filter</p>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>

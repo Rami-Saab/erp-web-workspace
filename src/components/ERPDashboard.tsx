@@ -1,5 +1,5 @@
 // src/components/ERPDashboard.tsx - الكود بعد التعديل (الأصلي مع الحفاظ على الشكل)
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AlertCircle,
   AlertTriangle,
@@ -26,6 +26,10 @@ import {
   CreditCard,
   User,
   ClipboardList,
+  ChevronLeft,
+  ChevronRight,
+  X,
+  Menu,
 } from "lucide-react";
 import {
   LineChart,
@@ -111,6 +115,16 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
   const [currentRole, setCurrentRole] = useState<"admin" | "sales" | "warehouse" | "finance">("admin");
   const [selectedWarehouse, setSelectedWarehouse] = useState("Riyadh DC");
   const [selectedCurrency, setSelectedCurrency] = useState<"SAR" | "USD" | "EUR">("SAR");
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('erp_sidebar_collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [profileAvatar, setProfileAvatar] = useState<string | null>(() => {
     try {
@@ -141,6 +155,10 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
       return user.email;
     }
   });
+
+  useEffect(() => {
+    localStorage.setItem('erp_sidebar_collapsed', String(sidebarCollapsed));
+  }, [sidebarCollapsed]);
 
   React.useEffect(() => {
     const handleAvatarUpdate = (event: Event) => {
@@ -356,10 +374,16 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
           <div className="flex items-center justify-between">
             {/* Logo and Title */}
             <div className="flex items-center gap-3">
+              <button
+                onClick={() => setMobileSidebarOpen(true)}
+                className="lg:hidden p-2 text-white/80 hover:bg-white/10 rounded-lg transition"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
               <div className="w-10 h-10 bg-white/20 backdrop-blur-sm rounded-lg flex items-center justify-center border border-white/30">
                 <LayoutDashboard className="w-6 h-6 text-white" />
               </div>
-              <div>
+              <div className="hidden sm:block">
                 <h1 className="text-white">ERP System</h1>
                 <p className="text-sm text-white/80">
                   Enterprise Resource Planning
@@ -374,8 +398,64 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
                 <input
                   type="text"
                   placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setSearchOpen(true);
+                  }}
+                  onFocus={() => setSearchOpen(true)}
                   className="w-full pl-10 pr-4 py-2 glass-input text-white placeholder-white/60 rounded-lg focus:outline-none focus:ring-2 focus:ring-white/30"
                 />
+                {searchOpen && searchQuery && (
+                  <div className="absolute top-full left-0 right-0 mt-2 bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-lg p-4 z-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-xs text-white/60">Quick Navigation</p>
+                      <button onClick={() => setSearchOpen(false)} className="text-white/60 hover:text-white">
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {[
+                        { page: 'dashboard', label: 'Dashboard', icon: Activity },
+                        { page: 'orders', label: 'Orders', icon: ShoppingCart },
+                        { page: 'customers', label: 'Customers', icon: Users },
+                        { page: 'inventory', label: 'Products', icon: Package },
+                        { page: 'invoices', label: 'Invoices', icon: CreditCard },
+                        { page: 'employees', label: 'Employees', icon: UserCheck },
+                        { page: 'reports', label: 'Reports', icon: FileText },
+                        { page: 'settings', label: 'Settings', icon: Settings },
+                      ]
+                        .filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
+                        .map(item => (
+                          <button
+                            key={item.page}
+                            onClick={() => {
+                              setActivePage(item.page);
+                              setSearchOpen(false);
+                              setSearchQuery('');
+                            }}
+                            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/10 text-left transition"
+                          >
+                            <item.icon className="w-4 h-4 text-white/60" />
+                            <span className="text-white text-sm">{item.label}</span>
+                          </button>
+                        ))}
+                      {[
+                        { page: 'dashboard', label: 'Dashboard', icon: Activity },
+                        { page: 'orders', label: 'Orders', icon: ShoppingCart },
+                        { page: 'customers', label: 'Customers', icon: Users },
+                        { page: 'inventory', label: 'Products', icon: Package },
+                        { page: 'invoices', label: 'Invoices', icon: CreditCard },
+                        { page: 'employees', label: 'Employees', icon: UserCheck },
+                        { page: 'reports', label: 'Reports', icon: FileText },
+                        { page: 'settings', label: 'Settings', icon: Settings },
+                      ]
+                        .filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
+                        <p className="text-xs text-white/60">No results found</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -422,7 +502,9 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
               >
                 <Bell className="w-5 h-5" />
                 {systemAlerts.length > 0 && (
-                  <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center text-[10px] font-bold text-white">
+                    {systemAlerts.length + pendingApprovals.length}
+                  </span>
                 )}
               </button>
 
@@ -464,171 +546,392 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
 
       {/* Main Content */}
       <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 glass-sidebar min-h-[calc(100vh-89px)] p-4">
+        {/* Mobile Sidebar Overlay */}
+        {mobileSidebarOpen && (
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 lg:hidden"
+            onClick={() => setMobileSidebarOpen(false)}
+          />
+        )}
+
+        {/* Mobile Sidebar */}
+        {mobileSidebarOpen && (
+          <aside className="fixed inset-y-0 left-0 w-64 glass-sidebar z-50 lg:hidden p-4 overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-3">
+                <LayoutDashboard className="w-6 h-6 text-white" />
+                <span className="text-white font-semibold">ERP System</span>
+              </div>
+              <button
+                onClick={() => setMobileSidebarOpen(false)}
+                className="p-2 text-white/80 hover:bg-white/10 rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <nav className="space-y-1">
+              <button
+                onClick={() => { setActivePage("dashboard"); setMobileSidebarOpen(false); }}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                  activePage === "dashboard"
+                    ? "glass-sidebar-btn-active text-white"
+                    : "text-white/80 hover:bg-white/10"
+                }`}
+              >
+                <Activity className="w-5 h-5 flex-shrink-0" />
+                <span>Dashboard</span>
+              </button>
+
+              {/* Sales Section */}
+              <div className="pt-4">
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  Sales
+                </p>
+                <button
+                  onClick={() => { setActivePage("orders"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "orders"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <ShoppingCart className="w-5 h-5 flex-shrink-0" />
+                  <span>Orders</span>
+                </button>
+                <button
+                  onClick={() => { setActivePage("customers"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "customers"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <Users className="w-5 h-5 flex-shrink-0" />
+                  <span>Customers</span>
+                </button>
+              </div>
+
+              {/* Inventory Section */}
+              <div className="pt-4">
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  Inventory
+                </p>
+                <button
+                  onClick={() => { setActivePage("inventory"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "inventory"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <Package className="w-5 h-5 flex-shrink-0" />
+                  <span>Products</span>
+                </button>
+                <button
+                  onClick={() => { setActivePage("suppliers"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "suppliers"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <Truck className="w-5 h-5 flex-shrink-0" />
+                  <span>Suppliers</span>
+                </button>
+                <button
+                  onClick={() => { setActivePage("purchase-orders"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "purchase-orders"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <ShoppingBag className="w-5 h-5 flex-shrink-0" />
+                  <span>Purchase Orders</span>
+                </button>
+              </div>
+
+              {/* Finance Section */}
+              <div className="pt-4">
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  Finance
+                </p>
+                <button
+                  onClick={() => { setActivePage("invoices"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "invoices"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <CreditCard className="w-5 h-5 flex-shrink-0" />
+                  <span>Invoices</span>
+                </button>
+                <button
+                  onClick={() => { setActivePage("reports"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "reports"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <FileText className="w-5 h-5 flex-shrink-0" />
+                  <span>Reports</span>
+                </button>
+              </div>
+
+              {/* HR Section */}
+              <div className="pt-4">
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  HR
+                </p>
+                <button
+                  onClick={() => { setActivePage("employees"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "employees"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <UserCheck className="w-5 h-5 flex-shrink-0" />
+                  <span>Employees</span>
+                </button>
+              </div>
+
+              {/* Other */}
+              <div className="pt-4">
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  Other
+                </p>
+                <button
+                  onClick={() => { setActivePage("analytics"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "analytics"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <BarChart3 className="w-5 h-5 flex-shrink-0" />
+                  <span>Analytics</span>
+                </button>
+                <button
+                  onClick={() => { setActivePage("settings"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "settings"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <Settings className="w-5 h-5 flex-shrink-0" />
+                  <span>Settings</span>
+                </button>
+                <button
+                  onClick={() => { setActivePage("audit-log"); setMobileSidebarOpen(false); }}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                    activePage === "audit-log"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <ClipboardList className="w-5 h-5 flex-shrink-0" />
+                  <span>Audit Log</span>
+                </button>
+              </div>
+            </nav>
+          </aside>
+        )}
+
+        {/* Desktop Sidebar */}
+        <aside className={`${sidebarCollapsed ? 'w-16' : 'w-64'} glass-sidebar min-h-[calc(100vh-89px)] p-4 transition-all duration-300 relative hidden lg:block`}>
+          {/* Collapse Toggle */}
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className="absolute -right-3 top-6 w-6 h-6 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center border border-white/30 hover:bg-white/30 transition z-10"
+          >
+            {sidebarCollapsed ? (
+              <ChevronRight className="w-3 h-3 text-white" />
+            ) : (
+              <ChevronLeft className="w-3 h-3 text-white" />
+            )}
+          </button>
+
           <nav className="space-y-1">
             <button
-              onClick={() => setActivePage("dashboard")}
-              className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+              onClick={() => { setActivePage("dashboard"); setMobileSidebarOpen(false); }}
+              className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                 activePage === "dashboard"
                   ? "glass-sidebar-btn-active text-white"
                   : "text-white/80 hover:bg-white/10"
               }`}
             >
-              <Activity className="w-5 h-5" />
-              <span>Dashboard</span>
+              <Activity className="w-5 h-5 flex-shrink-0" />
+              {!sidebarCollapsed && <span>Dashboard</span>}
             </button>
 
             {/* Sales Section */}
             <div className="pt-4">
-              <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
-                Sales
-              </p>
+              {!sidebarCollapsed && (
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  Sales
+                </p>
+              )}
               <button
                 onClick={() => setActivePage("orders")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "orders"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <ShoppingCart className="w-5 h-5" />
-                <span>Orders</span>
+                <ShoppingCart className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Orders</span>}
               </button>
               <button
                 onClick={() => setActivePage("customers")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "customers"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <Users className="w-5 h-5" />
-                <span>Customers</span>
+                <Users className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Customers</span>}
               </button>
             </div>
 
             {/* Inventory Section */}
             <div className="pt-4">
-              <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
-                Inventory
-              </p>
+              {!sidebarCollapsed && (
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  Inventory
+                </p>
+              )}
               <button
                 onClick={() => setActivePage("inventory")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "inventory"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <Package className="w-5 h-5" />
-                <span>Products</span>
+                <Package className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Products</span>}
               </button>
               <button
                 onClick={() => setActivePage("suppliers")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "suppliers"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <Truck className="w-5 h-5" />
-                <span>Suppliers</span>
+                <Truck className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Suppliers</span>}
               </button>
               <button
                 onClick={() => setActivePage("purchase-orders")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "purchase-orders"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <ShoppingBag className="w-5 h-5" />
-                <span>Purchase Orders</span>
+                <ShoppingBag className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Purchase Orders</span>}
               </button>
             </div>
 
             {/* Finance Section */}
             <div className="pt-4">
-              <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
-                Finance
-              </p>
+              {!sidebarCollapsed && (
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  Finance
+                </p>
+              )}
               <button
                 onClick={() => setActivePage("invoices")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "invoices"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <CreditCard className="w-5 h-5" />
-                <span>Invoices</span>
+                <CreditCard className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Invoices</span>}
               </button>
               <button
                 onClick={() => setActivePage("reports")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "reports"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <FileText className="w-5 h-5" />
-                <span>Reports</span>
+                <FileText className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Reports</span>}
               </button>
             </div>
 
             {/* HR Section */}
             <div className="pt-4">
-              <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
-                Human Resources
-              </p>
+              {!sidebarCollapsed && (
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  Human Resources
+                </p>
+              )}
               <button
                 onClick={() => setActivePage("employees")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "employees"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <UserCheck className="w-5 h-5" />
-                <span>Employees</span>
+                <UserCheck className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Employees</span>}
               </button>
             </div>
 
             {/* Other */}
             <div className="pt-4">
+              {!sidebarCollapsed && (
+                <p className="px-4 text-xs text-white/60 uppercase tracking-wider mb-2">
+                  Other
+                </p>
+              )}
               <button
                 onClick={() => setActivePage("analytics")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "analytics"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <BarChart3 className="w-5 h-5" />
-                <span>Analytics</span>
+                <BarChart3 className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Analytics</span>}
               </button>
               <button
                 onClick={() => setActivePage("settings")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "settings"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <Settings className="w-5 h-5" />
-                <span>Settings</span>
+                <Settings className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Settings</span>}
               </button>
               <button
                 onClick={() => setActivePage("audit-log")}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
                   activePage === "audit-log"
                     ? "glass-sidebar-btn-active text-white"
                     : "text-white/80 hover:bg-white/10"
                 }`}
               >
-                <ClipboardList className="w-5 h-5" />
-                <span>Audit Log</span>
+                <ClipboardList className="w-5 h-5 flex-shrink-0" />
+                {!sidebarCollapsed && <span>Audit Log</span>}
               </button>
             </div>
           </nav>
@@ -637,6 +940,19 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
         {/* Dashboard Content */}
         <main className="flex-1 p-6 lg:p-8">
           <div className="max-w-7xl mx-auto">
+            {/* Breadcrumb Bar */}
+            {activePage !== "dashboard" && (
+              <div className="mb-6 flex items-center gap-2 text-sm text-white/60">
+                <button
+                  onClick={() => setActivePage("dashboard")}
+                  className="hover:text-white transition"
+                >
+                  Dashboard
+                </button>
+                <span>/</span>
+                <span className="text-white capitalize">{activePage.replace('-', ' ')}</span>
+              </div>
+            )}
             {activePage === "dashboard" && (
               <div className="space-y-6 lg:space-y-8">
                 {/* Dashboard Header */}
@@ -661,15 +977,15 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
                 </div>
 
                 {/* Stats Grid */}
-                <div className="mb-6 lg:mb-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
+                <div className="mb-6 lg:mb-8 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6">
                   {stats.map((stat, index) => (
                     <div
                       key={index}
-                      className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-lg p-6"
+                      className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-lg p-4 sm:p-6"
                     >
-                      <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center justify-between mb-3 sm:mb-4">
                         <div
-                          className={`w-12 h-12 ${stat.bgColor} rounded-lg flex items-center justify-center ${stat.iconColor} border ${stat.borderColor}`}
+                          className={`w-10 h-10 sm:w-12 sm:h-12 ${stat.bgColor} rounded-lg flex items-center justify-center ${stat.iconColor} border ${stat.borderColor}`}
                         >
                           {stat.icon}
                         </div>
@@ -679,25 +995,25 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
                           }`}
                         >
                           {stat.isPositive ? (
-                            <TrendingUp className="w-4 h-4" />
+                            <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
                           ) : (
-                            <TrendingDown className="w-4 h-4" />
+                            <TrendingDown className="w-3 h-3 sm:w-4 sm:h-4" />
                           )}
-                          <span className="text-sm">{stat.change}</span>
+                          <span className="text-xs sm:text-sm">{stat.change}</span>
                         </div>
                       </div>
-                      <p className="text-white/70 text-sm mb-1">
+                      <p className="text-white/70 text-xs sm:text-sm mb-1">
                         {stat.title}
                       </p>
-                      <p className="text-white text-2xl">{stat.value}</p>
+                      <p className="text-white text-xl sm:text-2xl">{stat.value}</p>
                     </div>
                   ))}
                 </div>
 
                 {/* Recent Activity & Quick Actions */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-6 mb-6 lg:mb-8">
-                  <div className="glass-card p-6 rounded-xl">
-                    <h3 className="text-white mb-4">Recent Activity</h3>
+                  <div className="glass-card p-4 sm:p-6 rounded-xl">
+                    <h3 className="text-white mb-4 text-sm sm:text-base">Recent Activity</h3>
                     <div className="space-y-4">
                       {recentActivities.map((activity, index) => (
                         <div
@@ -721,19 +1037,19 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
                   <div className="glass-card p-6 rounded-xl">
                     <h3 className="text-white mb-4">Quick Actions</h3>
                     <div className="grid grid-cols-2 gap-3">
-                      <button className="p-4 glass-content-inner hover:bg-white/20 rounded-lg text-left transition">
+                      <button onClick={() => setActivePage("orders")} className="p-4 glass-content-inner hover:bg-white/20 rounded-lg text-left transition">
                         <ShoppingCart className="w-6 h-6 text-white mb-2" />
                         <p className="text-white text-sm">New Order</p>
                       </button>
-                      <button className="p-4 glass-content-inner hover:bg-white/20 rounded-lg text-left transition">
+                      <button onClick={() => setActivePage("inventory")} className="p-4 glass-content-inner hover:bg-white/20 rounded-lg text-left transition">
                         <Package className="w-6 h-6 text-white mb-2" />
                         <p className="text-white text-sm">Add Product</p>
                       </button>
-                      <button className="p-4 glass-content-inner hover:bg-white/20 rounded-lg text-left transition">
+                      <button onClick={() => setActivePage("customers")} className="p-4 glass-content-inner hover:bg-white/20 rounded-lg text-left transition">
                         <Users className="w-6 h-6 text-white mb-2" />
                         <p className="text-white text-sm">New Customer</p>
                       </button>
-                      <button className="p-4 glass-content-inner hover:bg-white/20 rounded-lg text-left transition">
+                      <button onClick={() => setActivePage("reports")} className="p-4 glass-content-inner hover:bg-white/20 rounded-lg text-left transition">
                         <FileText className="w-6 h-6 text-white mb-2" />
                         <p className="text-white text-sm">Generate Report</p>
                       </button>

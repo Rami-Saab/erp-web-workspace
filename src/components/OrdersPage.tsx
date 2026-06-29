@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import {
   Search,
   Plus,
@@ -11,9 +11,12 @@ import {
   ShoppingCart,
   List,
   KanbanSquare,
-  DollarSign,
+  X,
+  Trash2,
 } from "lucide-react";
 import { CustomSelect } from "./ui/CustomSelect";
+import { exportTableToPDF } from '../utils/pdfExport';
+import { toast } from 'sonner';
 
 type OrderStatus = "completed" | "processing" | "pending" | "cancelled";
 type OrderViewMode = "list" | "kanban";
@@ -25,6 +28,7 @@ type Order = {
   total: string;
   status: OrderStatus;
   date: string;
+  lineItems?: { name: string; qty: number; price: string }[];
 };
 
 const mockOrders: Order[] = [
@@ -35,6 +39,10 @@ const mockOrders: Order[] = [
     total: "$1,250",
     status: "completed",
     date: "2024-12-01",
+    lineItems: [
+      { name: "Product A", qty: 2, price: "$250" },
+      { name: "Product B", qty: 3, price: "$250" },
+    ],
   },
   {
     id: "ORD-002",
@@ -43,6 +51,10 @@ const mockOrders: Order[] = [
     total: "$890",
     status: "pending",
     date: "2024-12-02",
+    lineItems: [
+      { name: "Product C", qty: 1, price: "$400" },
+      { name: "Product D", qty: 2, price: "$245" },
+    ],
   },
   {
     id: "ORD-003",
@@ -51,6 +63,10 @@ const mockOrders: Order[] = [
     total: "$2,100",
     status: "processing",
     date: "2024-12-02",
+    lineItems: [
+      { name: "Product E", qty: 4, price: "$300" },
+      { name: "Product F", qty: 4, price: "$225" },
+    ],
   },
   {
     id: "ORD-004",
@@ -59,6 +75,9 @@ const mockOrders: Order[] = [
     total: "$450",
     status: "completed",
     date: "2024-12-01",
+    lineItems: [
+      { name: "Product G", qty: 2, price: "$225" },
+    ],
   },
   {
     id: "ORD-005",
@@ -67,6 +86,10 @@ const mockOrders: Order[] = [
     total: "$1,670",
     status: "pending",
     date: "2024-12-02",
+    lineItems: [
+      { name: "Product H", qty: 3, price: "$350" },
+      { name: "Product I", qty: 3, price: "$207" },
+    ],
   },
   {
     id: "ORD-006",
@@ -75,6 +98,9 @@ const mockOrders: Order[] = [
     total: "$980",
     status: "cancelled",
     date: "2024-11-30",
+    lineItems: [
+      { name: "Product J", qty: 4, price: "$245" },
+    ],
   },
   {
     id: "ORD-007",
@@ -83,6 +109,10 @@ const mockOrders: Order[] = [
     total: "$1,890",
     status: "processing",
     date: "2024-12-01",
+    lineItems: [
+      { name: "Product K", qty: 4, price: "$300" },
+      { name: "Product L", qty: 3, price: "$230" },
+    ],
   },
   {
     id: "ORD-008",
@@ -91,28 +121,12 @@ const mockOrders: Order[] = [
     total: "$720",
     status: "completed",
     date: "2024-11-29",
+    lineItems: [
+      { name: "Product M", qty: 3, price: "$240" },
+    ],
   },
 ];
 
-function useToasts() {
-  const [toasts, setToasts] = useState<
-    { id: string; type: "success" | "error" | "info"; text: string }[]
-  >([]);
-
-  const push = useCallback(
-    (t: { type: "success" | "error" | "info"; text: string }) => {
-      const id = String(Date.now()) + Math.random();
-      setToasts((s) => [...s, { id, ...t }]);
-      setTimeout(
-        () => setToasts((s) => s.filter((x) => x.id !== id)),
-        3000,
-      );
-    },
-    [],
-  );
-
-  return { toasts, push };
-}
 
 function getStatusColor(status: OrderStatus): string {
   switch (status) {
@@ -149,10 +163,13 @@ export function OrdersPage() {
   const [filterStatus, setFilterStatus] =
     useState<"all" | OrderStatus>("all");
   const [viewMode, setViewMode] = useState<OrderViewMode>("list");
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(
-    null,
-  );
-  const { toasts, push: pushToast } = useToasts();
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
+  const [processing, setProcessing] = useState(false);
+  const [newOrderLineItems, setNewOrderLineItems] = useState<{ name: string; qty: number; price: string }[]>([{ name: '', qty: 1, price: '' }]);
 
   const filteredOrders = mockOrders.filter((order) => {
     const matchesSearch =
@@ -169,15 +186,78 @@ export function OrdersPage() {
   const cancelledOrders = 121;
   const completionRate = ((completedOrders / totalOrders) * 100).toFixed(1);
 
-  const handleViewOrder = (orderId: string) => {
-    setSelectedOrderId(orderId);
+  const handleViewOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setDetailModalOpen(true);
   };
 
-  const handleDownloadOrder = (orderId: string) => {
-    pushToast({
-      type: "info",
-      text: `Downloading invoice for order ${orderId} (mock).`,
+  const handlePrintInvoice = (order: Order) => {
+    const headers = ['Item', 'Quantity', 'Price', 'Total'];
+    const rows = (order.lineItems || []).map(item => [
+      item.name,
+      String(item.qty),
+      item.price,
+      `$${(parseFloat(item.price.replace('$', '')) * item.qty).toFixed(2)}`
+    ]);
+    exportTableToPDF(`Invoice ${order.id}`, headers, rows, `Invoice_${order.id}.pdf`);
+    toast.success(`Invoice ${order.id} downloaded`);
+  };
+
+  const handleSelectOrder = (orderId: string) => {
+    setSelectedOrders(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(orderId)) {
+        newSet.delete(orderId);
+      } else {
+        newSet.add(orderId);
+      }
+      return newSet;
     });
+  };
+
+  const handleBulkAction = (action: string) => {
+    if (selectedOrders.size === 0) {
+      toast.error('No orders selected');
+      return;
+    }
+    setProcessing(true);
+    setTimeout(() => {
+      setProcessing(false);
+      setSelectedOrders(new Set());
+      toast.success(`${action} completed for ${selectedOrders.size} orders`);
+    }, 800);
+  };
+
+  const handleAddLineItem = () => {
+    setNewOrderLineItems([...newOrderLineItems, { name: '', qty: 1, price: '' }]);
+  };
+
+  const handleRemoveLineItem = (index: number) => {
+    setNewOrderLineItems(newOrderLineItems.filter((_, i) => i !== index));
+  };
+
+  const handleLineItemChange = (index: number, field: 'name' | 'qty' | 'price', value: string | number) => {
+    const updated = [...newOrderLineItems];
+    updated[index] = { ...updated[index], [field]: value };
+    setNewOrderLineItems(updated);
+  };
+
+  const calculateTotal = () => {
+    return newOrderLineItems.reduce((sum, item) => {
+      const price = parseFloat(item.price.replace('$', '')) || 0;
+      return sum + (price * item.qty);
+    }, 0);
+  };
+
+  const handleCreateOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    setProcessing(true);
+    setTimeout(() => {
+      setProcessing(false);
+      setCreateModalOpen(false);
+      setNewOrderLineItems([{ name: '', qty: 1, price: '' }]);
+      toast.success('Order created successfully');
+    }, 800);
   };
 
   return (
@@ -309,6 +389,24 @@ export function OrdersPage() {
                   className="w-[200px]"
                 />
 
+                {/* Bulk Actions */}
+                {selectedOrders.size > 0 && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => handleBulkAction('Mark as Completed')}
+                      className="px-3 py-2 text-xs bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 rounded-lg text-white transition"
+                    >
+                      Complete ({selectedOrders.size})
+                    </button>
+                    <button
+                      onClick={() => handleBulkAction('Cancel Orders')}
+                      className="px-3 py-2 text-xs bg-red-500/20 hover:bg-red-500/30 border border-red-400/30 rounded-lg text-white transition"
+                    >
+                      Cancel ({selectedOrders.size})
+                    </button>
+                  </div>
+                )}
+
                 {/* View toggle */}
                 <div
                   className="hidden md:flex items-center gap-0.5 p-1 rounded-xl"
@@ -373,6 +471,7 @@ export function OrdersPage() {
                 </div>
 
                 <button
+                  onClick={() => setCreateModalOpen(true)}
                   className="w-[200px] px-6 py-2.5 text-white rounded-lg flex items-center justify-center gap-2 text-sm font-semibold transition-all h-auto min-h-[42px]"
                   style={{
                     background: "rgba(59, 130, 246, 0.15)",
@@ -395,6 +494,20 @@ export function OrdersPage() {
               <table className="w-full">
                 <thead className="glass-table-header">
                   <tr>
+                    <th className="px-4 py-3 text-left text-xs text-white/70 uppercase tracking-wider w-10">
+                      <input
+                        type="checkbox"
+                        checked={selectedOrders.size === filteredOrders.length && filteredOrders.length > 0}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setSelectedOrders(new Set(filteredOrders.map(o => o.id)));
+                          } else {
+                            setSelectedOrders(new Set());
+                          }
+                        }}
+                        className="w-4 h-4 rounded border-white/30 bg-white/10"
+                      />
+                    </th>
                     <th className="px-6 py-3 text-left text-xs text-white/70 uppercase tracking-wider">
                       Order ID
                     </th>
@@ -424,6 +537,14 @@ export function OrdersPage() {
                       key={order.id}
                       className="glass-table-row hover:bg-white/5 transition duration-150"
                     >
+                      <td className="px-4 py-4">
+                        <input
+                          type="checkbox"
+                          checked={selectedOrders.has(order.id)}
+                          onChange={() => handleSelectOrder(order.id)}
+                          className="w-4 h-4 rounded border-white/30 bg-white/10"
+                        />
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="text-blue-300 font-medium">
                           {order.id}
@@ -459,13 +580,13 @@ export function OrdersPage() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <button
-                            onClick={() => handleViewOrder(order.id)}
+                            onClick={() => handleViewOrder(order)}
                             className="p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDownloadOrder(order.id)}
+                            onClick={() => handlePrintInvoice(order)}
                             className="p-2 text-green-400 hover:bg-white/10 rounded-lg transition"
                           >
                             <Download className="w-4 h-4" />
@@ -477,7 +598,7 @@ export function OrdersPage() {
                   {filteredOrders.length === 0 && (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={8}
                         className="px-6 py-8 text-center text-white/60"
                       >
                         No orders found matching your criteria.
@@ -487,56 +608,46 @@ export function OrdersPage() {
                 </tbody>
               </table>
             ) : (
-              <div className="p-4 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {filteredOrders.map((order) => (
-                  <button
-                    key={order.id}
-                    onClick={() => handleViewOrder(order.id)}
-                    className="glass-content-inner rounded-xl p-4 text-left hover:bg-white/20 transition flex flex-col gap-3"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-12 h-12 bg-gradient-to-br from-blue-400/30 to-indigo-500/30 rounded-lg flex items-center justify-center border border-white/20">
-                        <ShoppingCart className="w-6 h-6 text-blue-300" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-sm text-white truncate">
-                          {order.id}
-                        </p>
-                        <p className="text-[11px] text-white/60 truncate">
-                          {order.customer}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between text-xs text-white/80">
-                      <span className="px-2 py-0.5 rounded-full bg-white/10 border border-white/20">
-                        {order.items} items
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <span className="text-white/60">Date</span>
-                        <span className="text-white">{order.date}</span>
+              <div className="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {['pending', 'processing', 'completed', 'cancelled'].map((status) => (
+                  <div key={status} className="glass-content-inner rounded-xl p-4">
+                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-white/10">
+                      {getStatusIcon(status as OrderStatus)}
+                      <h4 className="text-white font-medium capitalize">{status}</h4>
+                      <span className="ml-auto text-white/60 text-sm">
+                        {filteredOrders.filter(o => o.status === status).length}
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-white/80">
-                      <span className="flex items-center gap-1">
-                        <DollarSign className="w-3 h-3 text-green-300" />
-                        <span className="text-white">{order.total}</span>
-                      </span>
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border ${getStatusColor(
-                          order.status,
-                        )} capitalize`}
-                      >
-                        {getStatusIcon(order.status)}
-                        {order.status}
-                      </span>
+                    <div className="space-y-3">
+                      {filteredOrders
+                        .filter(order => order.status === status)
+                        .map((order) => (
+                          <button
+                            key={order.id}
+                            onClick={() => handleViewOrder(order)}
+                            className="w-full text-left glass-content-inner rounded-lg p-3 hover:bg-white/20 transition"
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-8 h-8 bg-gradient-to-br from-blue-400/30 to-indigo-500/30 rounded flex items-center justify-center border border-white/20">
+                                <ShoppingCart className="w-4 h-4 text-blue-300" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs text-white truncate">{order.id}</p>
+                                <p className="text-[10px] text-white/60 truncate">{order.customer}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-green-300 font-medium">{order.total}</span>
+                              <span className="text-white/60">{order.date}</span>
+                            </div>
+                          </button>
+                        ))}
+                      {filteredOrders.filter(o => o.status === status).length === 0 && (
+                        <p className="text-center text-white/40 text-xs py-4">No orders</p>
+                      )}
                     </div>
-                  </button>
-                ))}
-                {filteredOrders.length === 0 && (
-                  <div className="col-span-full text-center py-8 text-white/60">
-                    No orders found matching your criteria.
                   </div>
-                )}
+                ))}
               </div>
             )}
           </div>
@@ -599,17 +710,146 @@ export function OrdersPage() {
         )}
       </div>
 
-      {/* Toasts (simple inline implementation) */}
-      {toasts.length > 0 && (
-        <div className="fixed bottom-4 right-4 space-y-2 z-50">
-          {toasts.map((t) => (
-            <div
-              key={t.id}
-              className="px-4 py-2 rounded-lg bg-slate-900/80 border border-white/20 text-xs text-white shadow-lg"
-            >
-              {t.text}
+      {/* Create Order Modal */}
+      {createModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCreateModalOpen(false)} />
+          <div className="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white text-lg font-semibold">Create New Order</h3>
+              <button onClick={() => setCreateModalOpen(false)} className="text-white/60 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-          ))}
+            <form onSubmit={handleCreateOrder} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-white/70 text-sm mb-1 block">Customer Name</label>
+                  <input type="text" required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" placeholder="Enter customer name" />
+                </div>
+                <div>
+                  <label className="text-white/70 text-sm mb-1 block">Order Date</label>
+                  <input type="date" required className="w-full px-4 py-2 glass-input text-white rounded-lg" />
+                </div>
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-white/70 text-sm">Line Items</label>
+                  <button type="button" onClick={handleAddLineItem} className="text-blue-300 text-sm hover:text-blue-200">+ Add Item</button>
+                </div>
+                {newOrderLineItems.map((item, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => handleLineItemChange(index, 'name', e.target.value)}
+                      placeholder="Product name"
+                      required
+                      className="flex-1 px-3 py-2 glass-input text-white placeholder-white/60 rounded-lg text-sm"
+                    />
+                    <input
+                      type="number"
+                      value={item.qty}
+                      onChange={(e) => handleLineItemChange(index, 'qty', parseInt(e.target.value) || 1)}
+                      min="1"
+                      required
+                      className="w-20 px-3 py-2 glass-input text-white rounded-lg text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={item.price}
+                      onChange={(e) => handleLineItemChange(index, 'price', e.target.value)}
+                      placeholder="$0"
+                      required
+                      className="w-24 px-3 py-2 glass-input text-white placeholder-white/60 rounded-lg text-sm"
+                    />
+                    {newOrderLineItems.length > 1 && (
+                      <button type="button" onClick={() => handleRemoveLineItem(index)} className="p-2 text-red-300 hover:text-red-200">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                <span className="text-white/70 text-sm">Total</span>
+                <span className="text-white text-lg font-semibold">${calculateTotal().toFixed(2)}</span>
+              </div>
+              <button
+                type="submit"
+                disabled={processing}
+                className="w-full px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-lg text-white font-semibold transition disabled:opacity-50"
+              >
+                {processing ? 'Creating...' : 'Create Order'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Order Detail Modal */}
+      {detailModalOpen && selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setDetailModalOpen(false)} />
+          <div className="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-lg p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white text-lg font-semibold">Order Details</h3>
+              <button onClick={() => setDetailModalOpen(false)} className="text-white/60 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <span className="text-white/60 text-sm">Order ID</span>
+                <span className="text-white font-medium">{selectedOrder.id}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <span className="text-white/60 text-sm">Customer</span>
+                <span className="text-white font-medium">{selectedOrder.customer}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <span className="text-white/60 text-sm">Date</span>
+                <span className="text-white font-medium">{selectedOrder.date}</span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <span className="text-white/60 text-sm">Status</span>
+                <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs border ${getStatusColor(selectedOrder.status)} capitalize`}>
+                  {getStatusIcon(selectedOrder.status)}
+                  {selectedOrder.status}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                <span className="text-white/60 text-sm">Total</span>
+                <span className="text-green-400 font-semibold text-lg">{selectedOrder.total}</span>
+              </div>
+              <div className="pt-4 border-t border-white/10">
+                <h4 className="text-white text-sm font-semibold mb-3">Line Items</h4>
+                <div className="space-y-2">
+                  {(selectedOrder.lineItems || []).map((item, index) => (
+                    <div key={index} className="flex justify-between text-sm p-2 bg-white/5 rounded-lg">
+                      <span className="text-white">{item.name} x{item.qty}</span>
+                      <span className="text-white/80">{item.price}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-2 pt-4">
+                <button
+                  onClick={() => handlePrintInvoice(selectedOrder)}
+                  className="flex-1 px-4 py-2 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 rounded-lg text-white font-medium transition flex items-center justify-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Download Invoice
+                </button>
+                <button
+                  onClick={() => setDetailModalOpen(false)}
+                  className="px-4 py-2 bg-white/10 hover:bg-white/20 border border-white/20 rounded-lg text-white font-medium transition"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

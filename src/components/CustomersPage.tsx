@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Search,
   Plus,
@@ -16,10 +16,38 @@ import {
   Clock,
   FileText,
   Activity,
+  Upload,
+  Download,
+  X,
+  Tag,
+  Check,
+  Trash2,
 } from 'lucide-react';
 import { CustomSelect } from './ui/CustomSelect';
+import { exportToCSV } from '../utils/csvExport';
+import { toast } from 'sonner';
 
-const mockCustomers = [
+type CustomerType = 'company' | 'individual';
+type CustomerStatus = 'active' | 'vip' | 'new';
+type CustomerSegment = 'Retail' | 'VIP' | 'Wholesale';
+
+interface Customer {
+  id: string;
+  name: string;
+  type: CustomerType;
+  segment: CustomerSegment;
+  email: string;
+  phone: string;
+  location: string;
+  orders: number;
+  totalSpent: string;
+  rating: number;
+  status: CustomerStatus;
+  creditLimit: string;
+  paymentTerms: string;
+  tags?: string[];
+}
+const mockCustomers: Customer[] = [
   {
     id: 'CUS-001',
     name: 'Ahmed Hassan',
@@ -34,6 +62,7 @@ const mockCustomers = [
     status: 'active',
     creditLimit: '$10,000',
     paymentTerms: 'Net 30',
+    tags: ['High Value', 'Regular'],
   },
   {
     id: 'CUS-002',
@@ -49,6 +78,7 @@ const mockCustomers = [
     status: 'active',
     creditLimit: '$5,000',
     paymentTerms: 'Cash',
+    tags: ['New Customer'],
   },
   {
     id: 'CUS-003',
@@ -64,6 +94,7 @@ const mockCustomers = [
     status: 'vip',
     creditLimit: '$25,000',
     paymentTerms: 'Net 45',
+    tags: ['VIP', 'Strategic', 'High Volume'],
   },
   {
     id: 'CUS-004',
@@ -79,6 +110,7 @@ const mockCustomers = [
     status: 'active',
     creditLimit: '$4,000',
     paymentTerms: 'Net 15',
+    tags: ['Regular'],
   },
   {
     id: 'CUS-005',
@@ -94,6 +126,7 @@ const mockCustomers = [
     status: 'active',
     creditLimit: '$12,000',
     paymentTerms: 'Net 30',
+    tags: ['Wholesale', 'Bulk Buyer'],
   },
   {
     id: 'CUS-006',
@@ -109,6 +142,7 @@ const mockCustomers = [
     status: 'new',
     creditLimit: '$2,000',
     paymentTerms: 'Cash',
+    tags: ['New Customer'],
   },
   {
     id: 'CUS-007',
@@ -124,6 +158,7 @@ const mockCustomers = [
     status: 'vip',
     creditLimit: '$30,000',
     paymentTerms: 'Net 60',
+    tags: ['VIP', 'Strategic'],
   },
   {
     id: 'CUS-008',
@@ -139,6 +174,7 @@ const mockCustomers = [
     status: 'active',
     creditLimit: '$6,000',
     paymentTerms: 'Net 30',
+    tags: ['Regular'],
   },
 ];
 
@@ -187,11 +223,15 @@ const mockLinkedInvoices = [
 
 export function CustomersPage() {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterStatus, setFilterStatus] = useState('all');
-  const [selectedCustomer, setSelectedCustomer] = useState(null as any);
-  const [activeProfileTab, setActiveProfileTab] = useState<'overview' | 'details' | 'finance' | 'activity'>(
+  const [filterStatus, setFilterStatus] = useState<CustomerStatus | 'all'>('all');
+  const [filterSegment, setFilterSegment] = useState<CustomerSegment | 'all'>('all');
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
+  const [activeProfileTab, setActiveProfileTab] = useState<'overview' | 'details' | 'finance' | 'activity' | 'tags'>(
     'overview',
   );
+  const [selectedCustomers, setSelectedCustomers] = useState<Set<string>>(new Set());
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const [newTag, setNewTag] = useState('');
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -220,23 +260,101 @@ export function CustomersPage() {
   const filteredCustomers = mockCustomers.filter((customer) => {
     const matchesSearch =
       customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         customer.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesFilter = filterStatus === 'all' || customer.status === filterStatus;
-    return matchesSearch && matchesFilter;
+      customer.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (customer.tags?.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase())));
+    const matchesStatus = filterStatus === 'all' || customer.status === filterStatus;
+    const matchesSegment = filterSegment === 'all' || customer.segment === filterSegment;
+    return matchesSearch && matchesStatus && matchesSegment;
   });
 
   const totalCustomers = mockCustomers.length;
   const vipCustomers = mockCustomers.filter((c) => c.status === 'vip').length;
   const activeCustomers = mockCustomers.filter((c) => c.status === 'active').length;
   const newCustomers = mockCustomers.filter((c) => c.status === 'new').length;
-  const avgRating = (
-    mockCustomers.reduce((sum, c) => sum + c.rating, 0) / mockCustomers.length
-  ).toFixed(1);
 
-  const handleRowClick = (customer: any) => {
+  const handleRowClick = (customer: Customer) => {
     setSelectedCustomer(customer);
     setActiveProfileTab('overview');
   };
+
+  const handleSelectCustomer = (customerId: string) => {
+    setSelectedCustomers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(customerId)) {
+        newSet.delete(customerId);
+      } else {
+        newSet.add(customerId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleBulkExport = useCallback(() => {
+    if (selectedCustomers.size === 0) {
+      toast.error('No customers selected');
+      return;
+    }
+    const headers = ['ID', 'Name', 'Email', 'Phone', 'Location', 'Segment', 'Status', 'Orders', 'Total Spent', 'Rating', 'Credit Limit', 'Payment Terms', 'Tags'];
+    const rows = mockCustomers
+      .filter(c => selectedCustomers.has(c.id))
+      .map(c => [
+        c.id,
+        c.name,
+        c.email,
+        c.phone,
+        c.location,
+        c.segment,
+        c.status,
+        String(c.orders),
+        c.totalSpent,
+        String(c.rating),
+        c.creditLimit,
+        c.paymentTerms,
+        (c.tags || []).join(', '),
+      ]);
+    exportToCSV('customers_export', headers, rows);
+    toast.success(`Exported ${selectedCustomers.size} customers`);
+  }, [selectedCustomers]);
+
+  const handleBulkDelete = useCallback(() => {
+    if (selectedCustomers.size === 0) {
+      toast.error('No customers selected');
+      return;
+    }
+    toast.success(`Deleted ${selectedCustomers.size} customers (mock)`);
+    setSelectedCustomers(new Set());
+  }, [selectedCustomers]);
+
+  const handleImportCSV = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    toast.success('Importing customers from CSV...');
+    setImportModalOpen(false);
+    // Mock import - in real implementation would parse CSV
+    setTimeout(() => {
+      toast.success('Successfully imported 5 customers');
+    }, 1500);
+  }, []);
+
+  const handleAddTag = useCallback(() => {
+    if (!newTag.trim() || !selectedCustomer) return;
+    setSelectedCustomer({
+      ...selectedCustomer,
+      tags: [...(selectedCustomer.tags || []), newTag.trim()],
+    });
+    setNewTag('');
+    toast.success('Tag added');
+  }, [newTag, selectedCustomer]);
+
+  const handleRemoveTag = useCallback((tagToRemove: string) => {
+    if (!selectedCustomer) return;
+    setSelectedCustomer({
+      ...selectedCustomer,
+      tags: (selectedCustomer.tags || []).filter(t => t !== tagToRemove),
+    });
+    toast.success('Tag removed');
+  }, [selectedCustomer]);
 
   const isDrawerOpen = !!selectedCustomer;
 
@@ -341,7 +459,7 @@ export function CustomersPage() {
             >
               <CustomSelect
                 value={filterStatus}
-                onChange={(value) => setFilterStatus(value as string)}
+                onChange={(value) => setFilterStatus(value as CustomerStatus | 'all')}
                 options={[
                   { value: 'all', label: 'All Customers' },
                   { value: 'vip', label: 'VIP' },
@@ -349,8 +467,48 @@ export function CustomersPage() {
                   { value: 'new', label: 'New' },
                 ]}
                 placeholder="All Customers"
-                className="w-[200px]"
+                className="w-[140px]"
               />
+
+              <CustomSelect
+                value={filterSegment}
+                onChange={(value) => setFilterSegment(value as CustomerSegment | 'all')}
+                options={[
+                  { value: 'all', label: 'All Segments' },
+                  { value: 'Retail', label: 'Retail' },
+                  { value: 'VIP', label: 'VIP' },
+                  { value: 'Wholesale', label: 'Wholesale' },
+                ]}
+                placeholder="All Segments"
+                className="w-[140px]"
+              />
+
+              {selectedCustomers.size > 0 && (
+                <>
+                  <button
+                    onClick={handleBulkExport}
+                    className="px-4 py-2.5 glass-stat-card rounded-lg text-sm font-semibold flex items-center gap-2 border border-green-400/40 bg-green-500/30 hover:bg-green-500/40 text-green-300"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export
+                  </button>
+                  <button
+                    onClick={handleBulkDelete}
+                    className="px-4 py-2.5 glass-stat-card rounded-lg text-sm font-semibold flex items-center gap-2 border border-red-400/40 bg-red-500/30 hover:bg-red-500/40 text-red-300"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Delete
+                  </button>
+                </>
+              )}
+
+              <button
+                onClick={() => setImportModalOpen(true)}
+                className="px-4 py-2.5 glass-stat-card rounded-lg text-sm font-semibold flex items-center gap-2 border border-blue-400/40 bg-blue-500/30 hover:bg-blue-500/40 text-blue-300"
+              >
+                <Upload className="w-4 h-4" />
+                Import
+              </button>
               
               <button 
                 className="w-[200px] px-6 py-2.5 text-white rounded-lg flex items-center justify-center gap-2 text-sm font-semibold transition-all h-auto min-h-[42px]"
@@ -385,6 +543,20 @@ export function CustomersPage() {
           <table className="w-full">
             <thead className="glass-table-header">
               <tr>
+                <th className="px-4 py-3 text-left text-xs text-white/70 uppercase tracking-wider w-10">
+                  <input
+                    type="checkbox"
+                    checked={selectedCustomers.size === filteredCustomers.length && filteredCustomers.length > 0}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedCustomers(new Set(filteredCustomers.map(c => c.id)));
+                      } else {
+                        setSelectedCustomers(new Set());
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-white/30 bg-white/10"
+                  />
+                </th>
                 <th className="px-6 py-3 text-left text-xs text-white/70 uppercase tracking-wider">Customer</th>
                 <th className="px-6 py-3 text-left text-xs text-white/70 uppercase tracking-wider">Contact</th>
                 <th className="px-6 py-3 text-left text-xs text-white/70 uppercase tracking-wider">Location</th>
@@ -399,8 +571,24 @@ export function CustomersPage() {
                   <tr
                     key={customer.id}
                     className="glass-table-row cursor-pointer hover:bg-white/10 transition"
-                    onClick={() => handleRowClick(customer)}
+                    onClick={(e) => {
+                      const target = e.target as HTMLElement;
+                      if (target.tagName !== 'INPUT') {
+                        handleRowClick(customer);
+                      }
+                    }}
                   >
+                  <td className="px-4 py-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedCustomers.has(customer.id)}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        handleSelectCustomer(customer.id);
+                      }}
+                      className="w-4 h-4 rounded border-white/30 bg-white/10"
+                    />
+                  </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-full flex items-center justify-center text-white border border-white/20">
@@ -418,6 +606,19 @@ export function CustomersPage() {
                             </span>
                           </p>
                         <p className="text-sm text-white/60">{customer.id}</p>
+                        {customer.tags && customer.tags.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {customer.tags.slice(0, 2).map((tag, idx) => (
+                              <span key={idx} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] bg-white/10 border border-white/20 text-white/70">
+                                <Tag className="w-2 h-2" />
+                                {tag}
+                              </span>
+                            ))}
+                            {customer.tags.length > 2 && (
+                              <span className="text-[9px] text-white/50">+{customer.tags.length - 2}</span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </td>
@@ -458,6 +659,17 @@ export function CustomersPage() {
                   </td>
                 </tr>
               ))}
+              {filteredCustomers.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-6 py-12 text-center">
+                    <div className="flex flex-col items-center justify-center gap-3">
+                      <Users className="w-12 h-12 text-white/30" />
+                      <p className="text-white/60">No customers found</p>
+                      <p className="text-sm text-white/40">Try adjusting your search or filter</p>
+                    </div>
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -539,6 +751,7 @@ export function CustomersPage() {
                     { id: 'details', label: 'Profile & Addresses', icon: Building2 },
                     { id: 'finance', label: 'Finance', icon: CreditCard },
                     { id: 'activity', label: 'Activity', icon: Activity },
+                    { id: 'tags', label: 'Tags', icon: Tag },
                   ].map((tab) => {
                     const Icon = tab.icon;
                     const isActive = activeProfileTab === tab.id;
@@ -822,6 +1035,77 @@ export function CustomersPage() {
                     </div>
                   </div>
                 )}
+
+                {activeProfileTab === 'tags' && (
+                  <div className="space-y-4 text-sm">
+                    <div className="glass-content-inner rounded-xl p-4">
+                      <p className="text-xs font-medium text-white/70 mb-3">
+                        Add New Tag
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="text"
+                          placeholder="Enter tag name..."
+                          value={newTag}
+                          onChange={(e) => setNewTag(e.target.value)}
+                          className="flex-1 px-3 py-2 glass-input text-white placeholder-white/60 rounded-lg text-xs"
+                        />
+                        <button
+                          onClick={() => handleAddTag()}
+                          className="px-3 py-2 glass-button rounded-lg text-white text-xs font-medium"
+                        >
+                          <Check className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="glass-content-inner rounded-xl p-4">
+                      <p className="text-xs font-medium text-white/70 mb-3">
+                        Current Tags
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {(selectedCustomer.tags || []).map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs bg-white/10 border border-white/20 text-white/80"
+                          >
+                            <Tag className="w-3 h-3" />
+                            {tag}
+                            <button
+                              onClick={() => handleRemoveTag(tag)}
+                              className="hover:text-red-300 transition"
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          </span>
+                        ))}
+                        {(!selectedCustomer.tags || selectedCustomer.tags.length === 0) && (
+                          <p className="text-xs text-white/50">No tags assigned</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="glass-content-inner rounded-xl p-4">
+                      <p className="text-xs font-medium text-white/70 mb-2">
+                        Popular Tags
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {['High Value', 'Regular', 'VIP', 'Strategic', 'New Customer', 'Wholesale', 'Bulk Buyer'].map((tag) => (
+                          <button
+                            key={tag}
+                            onClick={() => {
+                              setNewTag(tag);
+                              handleAddTag();
+                            }}
+                            className="px-2.5 py-1 rounded-full text-xs bg-white/5 border border-white/10 text-white/70 hover:bg-white/10 hover:text-white transition"
+                          >
+                            {tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Footer */}
@@ -837,6 +1121,46 @@ export function CustomersPage() {
           )}
         </div>
       </div>
+
+      {/* Import Modal */}
+      {importModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="glass-card rounded-2xl p-6 max-w-md w-full">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white">Import Customers</h3>
+              <button
+                onClick={() => setImportModalOpen(false)}
+                className="text-white/60 hover:text-white transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-white/70 mb-4">
+              Upload a CSV file to import customers. The file should contain columns: Name, Email, Phone, Location, Segment, Type.
+            </p>
+            <div className="border-2 border-dashed border-white/20 rounded-xl p-8 text-center hover:border-white/40 transition cursor-pointer">
+              <input
+                type="file"
+                accept=".csv"
+                onChange={handleImportCSV}
+                className="hidden"
+                id="csv-upload"
+              />
+              <label htmlFor="csv-upload" className="cursor-pointer">
+                <Upload className="w-8 h-8 text-white/60 mx-auto mb-2" />
+                <p className="text-sm text-white/80">Click to upload CSV</p>
+                <p className="text-xs text-white/50 mt-1">or drag and drop</p>
+              </label>
+            </div>
+            <button
+              onClick={() => setImportModalOpen(false)}
+              className="w-full mt-4 py-2 glass-content-inner rounded-lg text-white/80 hover:bg-white/15 transition text-sm"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
