@@ -8,16 +8,12 @@ import {
   Copy,
   Check,
   Mail,
-  Eye,
-  Edit3,
-  Shield,
   Search,
   UserPlus,
   Trash2,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import type { SharedUser, PermissionLevel, User } from '../types/reports.types';
 import { mockUsers } from '../data/mockData';
 import { CustomSelect } from './CustomSelect';
@@ -260,15 +256,6 @@ export const ShareDialog: React.FC<ShareDialogProps> = ({
     if (selectedEmails.length > 0) {
       onSendEmail?.(selectedEmails);
       setSelectedEmails([]);
-    }
-  };
-
-  // Get permission icon
-  const getPermissionIcon = (permission: PermissionLevel) => {
-    switch (permission) {
-      case 'view': return <Eye className="w-4 h-4" />;
-      case 'edit': return <Edit3 className="w-4 h-4" />;
-      case 'admin': return <Shield className="w-4 h-4" />;
     }
   };
 

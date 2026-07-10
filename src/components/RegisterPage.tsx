@@ -6,9 +6,10 @@ import { CustomSelect } from './ui/CustomSelect';
 interface RegisterPageProps {
   onRegister: (email: string, name: string) => void;
   onNavigateToLogin: () => void;
+  onNavigateToDashboard: () => void;
 }
 
-export function RegisterPage({ onRegister, onNavigateToLogin }: RegisterPageProps) {
+export function RegisterPage({ onRegister, onNavigateToLogin, onNavigateToDashboard }: RegisterPageProps) {
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -59,6 +60,7 @@ export function RegisterPage({ onRegister, onNavigateToLogin }: RegisterPageProp
 
     setTimeout(() => {
       onRegister(formData.email, formData.fullName);
+      onNavigateToDashboard();
       setIsLoading(false);
     }, 1000);
   };

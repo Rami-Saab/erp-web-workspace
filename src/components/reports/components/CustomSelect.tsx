@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { createPortal } from 'react-dom';
 import { ChevronDown, Check, Search } from 'lucide-react';
 import { List } from 'react-window';
-import { GLASS_STYLES } from '../utils';
 
 interface SelectOption {
   value: string | number;

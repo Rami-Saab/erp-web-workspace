@@ -1,6 +1,6 @@
 // ==================== FILTER PANEL COMPONENT ====================
 import React, { useState } from 'react';
-import { 
+import {
   Filter, X, ChevronDown, Search, Check,
   RotateCcw, SlidersHorizontal
 } from 'lucide-react';
@@ -18,61 +18,10 @@ const SelectInput: React.FC<{
   return (
     <CustomSelect
       value={value}
-      onChange={onChange}
+      onChange={(v) => onChange(String(v))}
       options={options.map(opt => ({ value: opt.value, label: opt.label }))}
       placeholder={placeholder}
     />
-  );
-};
-
-// Keep old implementation for reference (commented out)
-/*
-const SelectInputOld: React.FC<{
-  value: string;
-  options: { label: string; value: string }[];
-  onChange: (value: string) => void;
-  placeholder?: string;
-}> = ({ value, options, onChange, placeholder = 'Select...' }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const selectedOption = options.find(opt => opt.value === value);
-
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white text-sm text-left flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-white/20"
-      >
-        <span className={selectedOption ? 'text-white' : 'text-white/50'}>
-          {selectedOption?.label || placeholder}
-        </span>
-        <ChevronDown className={`w-4 h-4 text-white/50 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-      
-      {isOpen && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setIsOpen(false)} />
-          <div className="absolute z-20 w-full mt-1 bg-slate-800/95 backdrop-blur-sm border border-white/10 rounded-lg shadow-xl max-h-60 overflow-auto">
-            {options.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  onChange(opt.value);
-                  setIsOpen(false);
-                }}
-                className={`
-                  w-full px-4 py-2 text-left text-sm flex items-center justify-between
-                  ${value === opt.value ? 'bg-blue-500/20 text-blue-300' : 'text-white/80 hover:bg-white/10'}
-                `}
-              >
-                {opt.label}
-                {value === opt.value && <Check className="w-4 h-4" />}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
   );
 };
 

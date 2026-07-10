@@ -38,7 +38,7 @@ export const ReportTable: React.FC<ReportTableProps> = ({
   columns,
   title,
   pageSize = 10,
-  onExport,
+  onExport: _onExport,
   showPagination = true,
   showRowNumbers = false,
   stickyHeader = false,

@@ -42,7 +42,7 @@ export const AlertsCenter: React.FC = () => {
         return (
           <StatusBadge 
             status={severity.charAt(0).toUpperCase() + severity.slice(1)}
-            variant={severity === 'critical' ? 'danger' : severity === 'warning' ? 'warning' : 'info'}
+            variant={severity === 'critical' ? 'danger' : severity === 'warning' ? 'warning' : 'default'}
           />
         );
       }

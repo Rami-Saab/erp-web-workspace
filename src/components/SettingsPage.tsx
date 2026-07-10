@@ -4,14 +4,12 @@ import {
   Lock,
   Upload,
   Loader2,
-  CheckCircle2,
   XCircle,
   Eye,
   EyeOff,
   RefreshCw,
   Copy,
   Globe,
-  Zap,
   Shield,
   Smartphone,
   Monitor,
@@ -26,9 +24,14 @@ import {
   Building2,
   Calendar,
   Settings,
+  Trash2,
+  Download,
+  AlertTriangle,
+  Database,
 } from "lucide-react";
 import { CustomSelect } from "./ui/CustomSelect";
 import { DateInput } from "./ui/DateInput";
+import { toast } from 'sonner';
 
 /* -------------------------------------------------------- */
 /*                           TYPES                         */
@@ -36,7 +39,7 @@ import { DateInput } from "./ui/DateInput";
 
 const LOCAL_KEY = "erp_settings_v3";
 
-type TabId = "profile" | "security" | "access" | "notifications" | "audit";
+type TabId = "profile" | "security" | "access" | "notifications" | "audit" | "privacy";
 
 interface SettingsState {
   fullName: string;
@@ -249,16 +252,6 @@ function useSettingsState() {
   return { settings, updateSettings, saving };
 }
 
-function useToasts() {
-  const [toasts, setToasts] = useState<{id: string, type: "success"|"error"|"info", text: string}[]>([]);
-  const push = useCallback((t: { type: "success"|"error"|"info", text: string }) => {
-    const id = String(Date.now()) + Math.random();
-    setToasts((s) => [...s, { id, ...t }]);
-    setTimeout(() => setToasts((s) => s.filter((x) => x.id !== id)), 4000);
-  }, []);
-  return { toasts, push };
-}
-
 /* -------------------------------------------------------- */
 /*                         MAIN COMPONENT                   */
 /* -------------------------------------------------------- */
@@ -272,7 +265,6 @@ export function SettingsPage(): React.ReactElement {
   const [loadingAction, setLoadingAction] = useState(false);
   const [auditFilter, setAuditFilter] = useState<"all" | "success" | "error">("all");
   const fileRef = useRef<HTMLInputElement | null>(null);
-  const { toasts, push: pushToast } = useToasts();
   
   const { settings, updateSettings, saving } = useSettingsState();
   const [sessions, setSessions] = useState(MOCK_SESSIONS);
@@ -337,22 +329,22 @@ export function SettingsPage(): React.ReactElement {
   // Handlers
   const handleCopy = useCallback((text: string, label: string) => {
     navigator.clipboard.writeText(text);
-    pushToast({ type: "success", text: `${label} copied` });
-  }, [pushToast]);
+    toast.success(`${label} copied`);
+  }, []);
 
   const handleRevokeSession = useCallback((id: number) => {
     setSessions(prev => prev.filter(s => s.id !== id));
-    pushToast({ type: "info", text: "Signed out from device" });
-  }, [pushToast]);
+    toast.info("Signed out from device");
+  }, []);
 
   const handleRevokeAllSessions = useCallback(() => {
     setLoadingAction(true);
     setTimeout(() => {
       setSessions(prev => prev.filter(s => s.current));
       setLoadingAction(false);
-      pushToast({ type: "success", text: "Signed out of all other devices" });
+      toast.success("Signed out of all other devices");
     }, 600);
-  }, [pushToast]);
+  }, []);
 
   const handleSaveProfile = useCallback(() => {
     const errors: Record<string, string> = {};
@@ -368,7 +360,7 @@ export function SettingsPage(): React.ReactElement {
     setLoadingAction(true);
     setTimeout(() => { 
       setLoadingAction(false); 
-      pushToast({ type: "success", text: "Profile saved" }); 
+      toast.success("Profile saved"); 
       window.dispatchEvent(new CustomEvent("erp-profile-updated", { detail: {
         fullName: settings.fullName,
         emailAddress: settings.emailAddress,
@@ -378,15 +370,15 @@ export function SettingsPage(): React.ReactElement {
         avatarUrl: settings.avatarUrl ?? null,
       }}));
     }, 600);
-  }, [settings, pushToast]);
+  }, [settings]);
 
   const handleUpdatePassword = useCallback(() => {
     if (newPassword.length < 8) {
-      pushToast({ type: "error", text: "Password is too short" });
+      toast.error("Password is too short");
       return;
     }
     if (newPassword !== confirmPassword) {
-      pushToast({ type: "error", text: "Passwords do not match" });
+      toast.error("Passwords do not match");
       return;
     }
     setLoadingAction(true);
@@ -394,17 +386,17 @@ export function SettingsPage(): React.ReactElement {
       setLoadingAction(false);
       setNewPassword("");
       setConfirmPassword("");
-      pushToast({ type: "success", text: "Password updated" });
+      toast.success("Password updated");
     }, 800);
-  }, [newPassword, confirmPassword, pushToast]);
+  }, [newPassword, confirmPassword]);
 
   const handleGeneratePassword = useCallback(() => {
     const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%";
     let pwd = "";
     for (let i = 0; i < 16; i++) pwd += chars[Math.floor(Math.random() * chars.length)];
     setNewPassword(pwd);
-    pushToast({ type: "success", text: "Generated a strong password" });
-  }, [pushToast]);
+    toast.success("Generated a strong password");
+  }, []);
 
   const pwStr = useMemo(() => passwordStrength(newPassword), [newPassword]);
   const pwStrengthPercent = (pwStr.score / 4) * 100;
@@ -429,27 +421,11 @@ export function SettingsPage(): React.ReactElement {
     { id: "access" as TabId, label: "Permissions", icon: Key },
     { id: "notifications" as TabId, label: "Notifications", icon: Globe },
     { id: "audit" as TabId, label: "Audit", icon: ClipboardList },
+    { id: "privacy" as TabId, label: "Data & Privacy", icon: Database },
   ], []);
 
   return (
     <div className="overflow-hidden">
-      
-      {/* Toast Notifications */}
-      <div className="fixed right-2 sm:right-4 top-4 z-50 flex flex-col gap-3 max-w-[calc(100vw-1rem)] sm:max-w-none">
-        {toasts.map((t) => (
-          <div key={t.id} role="alert" className={`w-full sm:w-80 p-3 rounded-lg shadow-2xl flex items-center gap-3 border transition-all duration-300 glass-stat-card ${
-            t.type === "success" 
-              ? "bg-green-500/20 border-green-400/30 text-green-300" 
-              : t.type === "error" 
-              ? "bg-red-500/20 border-red-400/30 text-red-300" 
-              : "bg-blue-500/20 border-blue-400/30 text-blue-300"
-          }`}>
-             {t.type === "success" ? <CheckCircle2 className="w-4 h-4 flex-shrink-0"/> : t.type === "error" ? <XCircle className="w-4 h-4 flex-shrink-0"/> : <Zap className="w-4 h-4 flex-shrink-0"/>}
-             <span className="text-xs font-medium">{t.text}</span>
-          </div>
-        ))}
-      </div>
-
       {/* Header Section */}
       <div className="sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6">
@@ -600,7 +576,7 @@ export function SettingsPage(): React.ReactElement {
                               if (existingAvatar) {
                                 setAvatarPreview(existingAvatar);
                               }
-                              pushToast({ type: "error", text: "Failed to load image" });
+                              toast.error("Failed to load image");
                             };
                             reader.readAsDataURL(file);
                           }}
@@ -897,7 +873,7 @@ export function SettingsPage(): React.ReactElement {
                         onClick={() => {
                           const newState = !settings.mfaEnabled;
                           updateSettings("mfaEnabled", newState);
-                          pushToast({type: newState ? "success" : "error", text: newState ? "2FA enabled - Your account is now protected" : "2FA disabled - Your account security has been reduced"});
+                          toast.success(newState ? "2FA enabled - Your account is now protected" : "2FA disabled - Your account security has been reduced");
                         }}
                         className={`text-xs font-semibold px-3 py-1.5 rounded transition-all duration-200 cursor-pointer ${
                           settings.mfaEnabled 
@@ -913,7 +889,7 @@ export function SettingsPage(): React.ReactElement {
                   {/* API Key Management */}
                   <div className="glass-card rounded-xl p-4 sm:p-5 border border-purple-400/20 bg-gradient-to-br from-purple-600/15 to-indigo-600/10 hover:border-purple-400/40 hover:shadow-purple-500/20 transition-all duration-300 shadow-lg">
                     <div className="flex items-center gap-2 mb-3 sm:mb-4">
-                      <Zap className={`w-3.5 h-3.5 text-white`} />
+                      <Key className={`w-3.5 h-3.5 text-white`} />
                       <h3 className={`text-sm font-bold text-white`}>API key</h3>
                     </div>
                     <div className="flex gap-3 items-center">
@@ -1267,6 +1243,120 @@ export function SettingsPage(): React.ReactElement {
                     </div>
                   </div>
                 </div>
+            )}
+
+            {/* DATA & PRIVACY TAB */}
+            {tab === "privacy" && (
+              <div className="space-y-6 sm:space-y-8 animate-fadeIn w-full">
+                <div className="mb-4 sm:mb-6">
+                  <div className="flex items-center gap-3 mb-2">
+                    <div className="w-1 h-6 sm:h-7 bg-gradient-to-b from-purple-500 to-pink-500 rounded-full"></div>
+                    <div>
+                      <h3 className="text-xl sm:text-2xl font-bold text-white">Data & Privacy</h3>
+                      <p className="text-sm text-white/60 mt-1">Manage your data, privacy settings, and export options</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Data Export */}
+                <div className="glass-card rounded-xl p-5 sm:p-6 border border-purple-400/20 bg-gradient-to-br from-purple-600/15 to-pink-600/10 hover:border-purple-400/40 hover:shadow-purple-500/20 transition-all duration-300 shadow-lg">
+                  <div className="flex items-center gap-3 mb-4 sm:mb-5">
+                    <Download className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400" />
+                    <div>
+                      <h4 className="text-base sm:text-lg font-semibold text-white">Export Your Data</h4>
+                      <p className="text-xs sm:text-sm text-white/60 mt-0.5">Download all your personal data in a portable format</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <button
+                      onClick={() => {
+                        toast.success("Data export request initiated. You will receive an email when ready.");
+                      }}
+                      className="w-full py-2.5 sm:py-3 glass-stat-card rounded-lg transition text-sm font-semibold flex items-center justify-center gap-2 border border-purple-400/40 bg-purple-500/30 hover:bg-purple-500/40 hover:border-purple-400/60 hover:shadow-purple-500/30 text-purple-300 shadow-lg"
+                    >
+                      <Download className="w-4 h-4" />
+                      Request Full Data Export
+                    </button>
+                    <p className="text-xs text-white/50 text-center">
+                      Your data will be compiled and sent to your email within 24-48 hours.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Data Deletion */}
+                <div className="glass-card rounded-xl p-5 sm:p-6 border border-red-400/20 bg-gradient-to-br from-red-600/15 to-orange-600/10 hover:border-red-400/40 hover:shadow-red-500/20 transition-all duration-300 shadow-lg">
+                  <div className="flex items-center gap-3 mb-4 sm:mb-5">
+                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
+                    <div>
+                      <h4 className="text-base sm:text-lg font-semibold text-white">Delete Account</h4>
+                      <p className="text-xs sm:text-sm text-white/60 mt-0.5">Permanently delete your account and all associated data</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="p-3 sm:p-4 rounded-lg bg-red-500/10 border border-red-400/20">
+                      <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-2">
+                          <p className="text-xs sm:text-sm text-red-300 font-medium">Warning: This action cannot be undone</p>
+                          <p className="text-xs text-white/60">
+                            Deleting your account will permanently remove all your data including orders, customers, invoices, and settings. This action is irreversible.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        toast.error("Account deletion requires additional verification. Please contact support.");
+                      }}
+                      className="w-full py-2.5 sm:py-3 glass-stat-card rounded-lg transition text-sm font-semibold flex items-center justify-center gap-2 border border-red-400/40 bg-red-500/30 hover:bg-red-500/40 hover:border-red-400/60 hover:shadow-red-500/30 text-red-300 shadow-lg"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      Delete Account
+                    </button>
+                  </div>
+                </div>
+
+                {/* Privacy Settings */}
+                <div className="glass-card rounded-xl p-5 sm:p-6 border border-blue-400/20 bg-gradient-to-br from-blue-600/15 to-indigo-600/10 hover:border-blue-400/40 hover:shadow-blue-500/20 transition-all duration-300 shadow-lg">
+                  <div className="flex items-center gap-3 mb-4 sm:mb-5">
+                    <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                    <div>
+                      <h4 className="text-base sm:text-lg font-semibold text-white">Privacy Settings</h4>
+                      <p className="text-xs sm:text-sm text-white/60 mt-0.5">Control how your data is used and shared</p>
+                    </div>
+                  </div>
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg bg-white/5 border border-white/10">
+                      <div>
+                        <p className="text-sm font-medium text-white">Analytics & Usage Data</p>
+                        <p className="text-xs text-white/60 mt-1">Help us improve the system by sharing anonymous usage data</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          toast.success("Analytics preference updated");
+                        }}
+                        className="px-4 py-2 rounded-lg bg-green-500/20 border border-green-400/30 text-green-300 text-xs font-medium hover:bg-green-500/30 transition"
+                      >
+                        Enabled
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between p-3 sm:p-4 rounded-lg bg-white/5 border border-white/10">
+                      <div>
+                        <p className="text-sm font-medium text-white">Marketing Communications</p>
+                        <p className="text-xs text-white/60 mt-1">Receive updates about new features and promotions</p>
+                      </div>
+                      <button
+                        onClick={() => {
+                          toast.success("Marketing preference updated");
+                        }}
+                        className="px-4 py-2 rounded-lg bg-red-500/20 border border-red-400/30 text-red-300 text-xs font-medium hover:bg-red-500/30 transition"
+                      >
+                        Disabled
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             )}
           </div>
         </div>

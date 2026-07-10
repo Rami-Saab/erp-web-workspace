@@ -4,7 +4,7 @@
 export { ReportsModule } from './ReportsModule';
 
 // Page exports
-export { ReportsList, ReportViewer, ReportBuilder, ReportSchedule, ReportTemplates } from './pages';
+export { ReportsList, ReportViewer, ReportBuilder, ReportTemplates } from './pages';
 
 // Component exports
 export {

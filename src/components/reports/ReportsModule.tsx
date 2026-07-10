@@ -17,16 +17,14 @@
 import React, { useState, useCallback } from 'react';
 import {
   FileText,
-  List,
   Plus,
   Calendar,
   Layout,
   Users,
-  Settings,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { ReportsList, ReportViewer, ReportBuilder, ReportSchedule, ReportTemplates, CreateReport } from './pages';
-import type { ReportsTab, Report, ReportTemplate } from './types/reports.types';
+import type { ReportsTab, Report } from './types/reports.types';
 import { mockReports as initialMockReports } from './data/mockData';
 
 /**
@@ -224,7 +222,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
    * Handle sharing a report
    * Currently a placeholder - share dialog is handled within ReportCard/ReportViewer
    */
-  const handleShareReport = useCallback((id: string) => {
+  const handleShareReport = useCallback((_id: string) => {
     // Share dialog is handled within ReportCard/ReportViewer components
   }, []);
 
@@ -264,16 +262,6 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     setReports(prev => [...prev, duplicatedReport]);
     toast.success('Report duplicated successfully');
   }, [reports]);
-
-  /**
-   * Handle using a template to create a new report
-   * Navigates to the create view with template configuration
-   */
-  const handleUseTemplate = useCallback((template: ReportTemplate) => {
-    setEditingReportId(undefined);
-    setCurrentTab('create');
-    // In a real implementation, template config would be passed to the builder
-  }, []);
 
   // ==================== Render Logic ====================
   

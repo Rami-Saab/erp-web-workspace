@@ -204,7 +204,7 @@ export const ChartSkeleton: React.FC = () => {
         ))}
       </div>
       <div className="flex justify-between mt-4">
-        {['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'].map((label, i) => (
+        {['J', 'F', 'M', 'A', 'M', 'J', 'J', 'A', 'S', 'O', 'N', 'D'].map((_label, i) => (
           <div key={i} className="h-4 w-6 bg-white/5 rounded" />
         ))}
       </div>

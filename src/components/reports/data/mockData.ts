@@ -4,7 +4,6 @@ import type {
   Report,
   User,
   Dataset,
-  DatasetField,
   ReportTemplate,
   FilterPreset,
   ReportDataRow,

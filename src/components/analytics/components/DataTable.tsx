@@ -114,8 +114,8 @@ export const TableProgressBar: React.FC<{
 export const DataTable: React.FC<{
   data: any[];
   columns: any[];
-  [key: string]: any;
-}> = ({ data, columns, ...props }) => {
+  config?: any;
+}> = ({ data, columns, config: _config }) => {
   return (
     <div className="w-full overflow-x-auto">
       <table className="w-full border-collapse">

@@ -5,8 +5,6 @@ import {
   LineChart,
   PieChart,
   AreaChart,
-  RefreshCw,
-  Download,
 } from 'lucide-react';
 import type { ChartDataPoint, ChartType } from '../types/reports.types';
 import { formatCurrency } from '../data/mockData';
@@ -45,10 +43,10 @@ export const ReportChart: React.FC<ReportChartProps> = ({
   title,
   height = 300,
   showLegend = true,
-  showValues = false,
-  onFullscreen,
-  onRefresh,
-  onExport,
+  showValues: _showValues = false,
+  onFullscreen: _onFullscreen,
+  onRefresh: _onRefresh,
+  onExport: _onExport,
   valueFormat = 'number',
   colors = DEFAULT_COLORS,
   onTypeChange,
@@ -57,16 +55,7 @@ export const ReportChart: React.FC<ReportChartProps> = ({
   // Local state for chart type if no external handler provided
   const [localChartType, setLocalChartType] = useState<ChartType>(type);
   const currentType = onTypeChange ? type : localChartType;
-  
-  const handleTypeToggle = () => {
-    const newType: ChartType = currentType === 'bar' ? 'pie' : 'bar';
-    if (onTypeChange) {
-      onTypeChange(newType);
-    } else {
-      setLocalChartType(newType);
-    }
-  };
-  
+
   // Check if this is Inventory Aging Analysis report
   const isInventoryAging = title === 'Inventory Aging Analysis';
   // Calculate chart dimensions
@@ -220,7 +209,7 @@ export const ReportChart: React.FC<ReportChartProps> = ({
         <div className="px-3 pb-6">
           <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
             {/* Grid lines - subtle */}
-            {yAxisValues.map((value, i) => {
+            {yAxisValues.map((_value, i) => {
               const y = (i / (yAxisSteps - 1)) * 100;
               return (
                 <line

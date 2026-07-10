@@ -9,7 +9,6 @@ import {
   AreaChart,
   Table,
   Eye,
-  Copy,
   Users,
 } from 'lucide-react';
 import { EmptyState } from '../components';

@@ -48,6 +48,7 @@ interface CreateReportFormProps {
   onBack: () => void;
   onSave: (report: Partial<Report>) => void;
   initialSection?: ReportSection;
+  onNavigateToSection?: (section: ReportSection) => void;
 }
 
 /**

@@ -58,7 +58,7 @@ export const InventoryAnalytics: React.FC = () => {
       key: 'urgency', 
       header: 'Urgency', 
       align: 'center' as const,
-      render: (v: unknown) => <UrgencyBadge urgency={v as 'critical' | 'high' | 'medium' | 'low'} />
+      render: (v: unknown) => <UrgencyBadge level={v as 'critical' | 'high' | 'medium' | 'low'} />
     },
   ];
 
@@ -260,7 +260,7 @@ export const InventoryAnalytics: React.FC = () => {
                 }`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-blue-400 font-mono text-sm">{item.sku}</span>
-                    <UrgencyBadge urgency={item.urgency} />
+                    <UrgencyBadge level={item.urgency} />
                   </div>
                   <p className="text-white font-medium text-sm mb-1">{item.name}</p>
                   <p className="text-white/60 text-xs">

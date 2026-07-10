@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { ScheduleForm, EmptyState, LoadingState, DeleteConfirmDialog } from '../components';
 import type { ReportSchedule as ScheduleType, Report } from '../types/reports.types';
-import { mockSchedules, mockReports as defaultMockReports, formatDateTime } from '../data/mockData';
+import { mockReports as defaultMockReports, formatDateTime } from '../data/mockData';
 import { toast } from 'sonner';
 
 interface ReportScheduleProps {

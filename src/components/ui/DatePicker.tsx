@@ -29,15 +29,6 @@ const formatDateDisplay = (date: Date): string => {
   return `${month} ${day}, ${year}`;
 };
 
-const formatFullDateDisplay = (date: Date): string => {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-  const dayName = days[date.getDay()];
-  const monthName = months[date.getMonth()];
-  const day = date.getDate();
-  return `${dayName}, ${monthName} ${day}`;
-};
-
 export function DatePicker({
   value,
   onChange,
@@ -149,8 +140,6 @@ export function DatePicker({
   const handleToggle = () => {
     setIsOpen(prev => !prev);
   };
-
-  const displayDate = date || new Date();
 
   return (
     <div className={`relative ${className.includes('w-full') ? 'w-full' : 'w-full'} ${className}`}>

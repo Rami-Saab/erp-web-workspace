@@ -1,23 +1,14 @@
 // ==================== REPORTS MODULE - REPORT CARD COMPONENT ====================
 import React from 'react';
 import {
-  BarChart3,
-  LineChart,
-  PieChart,
-  AreaChart,
-  Table,
   Star,
   StarOff,
   Eye,
-  Edit3,
-  Copy,
-  Trash2,
   Clock,
   User,
   Calendar,
   Play,
   Share2,
-  UserCheck,
   Users,
   DollarSign,
   TrendingUp,
@@ -26,28 +17,9 @@ import {
   Settings,
   FileText,
 } from 'lucide-react';
-import type { Report, ChartType } from '../types/reports.types';
+import type { Report } from '../types/reports.types';
 import { MODULE_COLORS, STATUS_COLORS } from '../types/reports.types';
 import { formatDate } from '../data/mockData';
-
-// Chart type icon mapping
-const getChartIcon = (chartType: ChartType): React.ReactNode => {
-  switch (chartType) {
-    case 'bar':
-      return <BarChart3 className="w-5 h-5" />;
-    case 'line':
-      return <LineChart className="w-5 h-5" />;
-    case 'pie':
-    case 'donut':
-      return <PieChart className="w-5 h-5" />;
-    case 'area':
-      return <AreaChart className="w-5 h-5" />;
-    case 'table':
-      return <Table className="w-5 h-5" />;
-    default:
-      return <BarChart3 className="w-5 h-5" />;
-  }
-};
 
 // Module icon mapping - each module has its own icon
 const getModuleIcon = (module: string): React.ReactNode => {
@@ -84,9 +56,9 @@ interface ReportCardProps {
 export const ReportCard: React.FC<ReportCardProps> = ({
   report,
   onView,
-  onEdit,
-  onDuplicate,
-  onDelete,
+  onEdit: _onEdit,
+  onDuplicate: _onDuplicate,
+  onDelete: _onDelete,
   onToggleFavorite,
   onRun,
   onShare,

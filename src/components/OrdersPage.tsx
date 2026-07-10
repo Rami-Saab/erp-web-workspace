@@ -13,6 +13,7 @@ import {
   KanbanSquare,
   X,
   Trash2,
+  Pencil,
 } from "lucide-react";
 import { CustomSelect } from "./ui/CustomSelect";
 import { exportTableToPDF } from '../utils/pdfExport';
@@ -166,12 +167,17 @@ export function OrdersPage() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set());
   const [processing, setProcessing] = useState(false);
   const [newOrderLineItems, setNewOrderLineItems] = useState<{ name: string; qty: number; price: string }[]>([{ name: '', qty: 1, price: '' }]);
+  const [orders, setOrders] = useState<Order[]>(mockOrders);
+  const [editOrderLineItems, setEditOrderLineItems] = useState<{ name: string; qty: number; price: string }[]>([]);
+  const [editOrderData, setEditOrderData] = useState<{ customer: string; date: string; status: OrderStatus }>({ customer: '', date: '', status: 'pending' });
+  const [newOrderData, setNewOrderData] = useState<{ customer: string; date: string }>({ customer: '', date: '' });
 
-  const filteredOrders = mockOrders.filter((order) => {
+  const filteredOrders = orders.filter((order) => {
     const matchesSearch =
       order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.id.toLowerCase().includes(searchQuery.toLowerCase());
@@ -252,12 +258,70 @@ export function OrdersPage() {
   const handleCreateOrder = (e: React.FormEvent) => {
     e.preventDefault();
     setProcessing(true);
+    const newOrder: Order = {
+      id: `ORD-${String(orders.length + 1).padStart(3, '0')}`,
+      customer: newOrderData.customer,
+      items: newOrderLineItems.reduce((sum, item) => sum + item.qty, 0),
+      total: `$${calculateTotal().toFixed(2)}`,
+      status: 'pending',
+      date: newOrderData.date,
+      lineItems: newOrderLineItems.map(item => ({ name: item.name, qty: item.qty, price: item.price })),
+    };
     setTimeout(() => {
+      setOrders([...orders, newOrder]);
       setProcessing(false);
       setCreateModalOpen(false);
       setNewOrderLineItems([{ name: '', qty: 1, price: '' }]);
+      setNewOrderData({ customer: '', date: '' });
       toast.success('Order created successfully');
     }, 800);
+  };
+
+  const handleEditOrder = (order: Order) => {
+    setSelectedOrder(order);
+    setEditOrderData({
+      customer: order.customer,
+      date: order.date,
+      status: order.status,
+    });
+    setEditOrderLineItems(order.lineItems || [{ name: '', qty: 1, price: '' }]);
+    setEditModalOpen(true);
+  };
+
+  const handleUpdateOrder = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedOrder) return;
+    setProcessing(true);
+    const updatedOrder: Order = {
+      ...selectedOrder,
+      customer: editOrderData.customer,
+      date: editOrderData.date,
+      status: editOrderData.status,
+      items: editOrderLineItems.reduce((sum, item) => sum + item.qty, 0),
+      total: `$${editOrderLineItems.reduce((sum, item) => {
+        const price = parseFloat(item.price.replace('$', '')) || 0;
+        return sum + (price * item.qty);
+      }, 0).toFixed(2)}`,
+      lineItems: editOrderLineItems,
+    };
+    setTimeout(() => {
+      setOrders(orders.map(o => o.id === selectedOrder.id ? updatedOrder : o));
+      setProcessing(false);
+      setEditModalOpen(false);
+      setSelectedOrder(null);
+      toast.success('Order updated successfully');
+    }, 800);
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    if (confirm('Are you sure you want to delete this order?')) {
+      setProcessing(true);
+      setTimeout(() => {
+        setOrders(orders.filter(o => o.id !== orderId));
+        setProcessing(false);
+        toast.success('Order deleted successfully');
+      }, 500);
+    }
   };
 
   return (
@@ -586,10 +650,22 @@ export function OrdersPage() {
                             <Eye className="w-4 h-4" />
                           </button>
                           <button
+                            onClick={() => handleEditOrder(order)}
+                            className="p-2 text-blue-400 hover:bg-white/10 rounded-lg transition"
+                          >
+                            <Pencil className="w-4 h-4" />
+                          </button>
+                          <button
                             onClick={() => handlePrintInvoice(order)}
                             className="p-2 text-green-400 hover:bg-white/10 rounded-lg transition"
                           >
                             <Download className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteOrder(order.id)}
+                            className="p-2 text-red-400 hover:bg-white/10 rounded-lg transition"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
                       </td>
@@ -725,11 +801,24 @@ export function OrdersPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-white/70 text-sm mb-1 block">Customer Name</label>
-                  <input type="text" required className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" placeholder="Enter customer name" />
+                  <input 
+                    type="text" 
+                    required 
+                    value={newOrderData.customer}
+                    onChange={(e) => setNewOrderData({...newOrderData, customer: e.target.value})}
+                    className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" 
+                    placeholder="Enter customer name" 
+                  />
                 </div>
                 <div>
                   <label className="text-white/70 text-sm mb-1 block">Order Date</label>
-                  <input type="date" required className="w-full px-4 py-2 glass-input text-white rounded-lg" />
+                  <input 
+                    type="date" 
+                    required 
+                    value={newOrderData.date}
+                    onChange={(e) => setNewOrderData({...newOrderData, date: e.target.value})}
+                    className="w-full px-4 py-2 glass-input text-white rounded-lg" 
+                  />
                 </div>
               </div>
               <div>
@@ -849,6 +938,124 @@ export function OrdersPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Order Modal */}
+      {editModalOpen && selectedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setEditModalOpen(false)} />
+          <div className="relative bg-white/10 backdrop-blur-md border border-white/20 rounded-xl shadow-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-white text-lg font-semibold">Edit Order {selectedOrder.id}</h3>
+              <button onClick={() => setEditModalOpen(false)} className="text-white/60 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <form onSubmit={handleUpdateOrder} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-white/70 text-sm mb-1 block">Customer Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={editOrderData.customer}
+                    onChange={(e) => setEditOrderData({...editOrderData, customer: e.target.value})}
+                    className="w-full px-4 py-2 glass-input text-white placeholder-white/60 rounded-lg" 
+                  />
+                </div>
+                <div>
+                  <label className="text-white/70 text-sm mb-1 block">Order Date</label>
+                  <input 
+                    type="date" 
+                    required 
+                    value={editOrderData.date}
+                    onChange={(e) => setEditOrderData({...editOrderData, date: e.target.value})}
+                    className="w-full px-4 py-2 glass-input text-white rounded-lg" 
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-white/70 text-sm mb-1 block">Status</label>
+                <CustomSelect
+                  value={editOrderData.status}
+                  onChange={(value) => setEditOrderData({...editOrderData, status: value as OrderStatus})}
+                  options={[
+                    { value: 'pending', label: 'Pending' },
+                    { value: 'processing', label: 'Processing' },
+                    { value: 'completed', label: 'Completed' },
+                    { value: 'cancelled', label: 'Cancelled' },
+                  ]}
+                  placeholder="Select status"
+                />
+              </div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-white/70 text-sm">Line Items</label>
+                  <button type="button" onClick={() => setEditOrderLineItems([...editOrderLineItems, { name: '', qty: 1, price: '' }])} className="text-blue-300 text-sm hover:text-blue-200">+ Add Item</button>
+                </div>
+                {editOrderLineItems.map((item, index) => (
+                  <div key={index} className="flex gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={item.name}
+                      onChange={(e) => {
+                        const updated = [...editOrderLineItems];
+                        updated[index] = { ...updated[index], name: e.target.value };
+                        setEditOrderLineItems(updated);
+                      }}
+                      placeholder="Product name"
+                      required
+                      className="flex-1 px-3 py-2 glass-input text-white placeholder-white/60 rounded-lg text-sm"
+                    />
+                    <input
+                      type="number"
+                      value={item.qty}
+                      onChange={(e) => {
+                        const updated = [...editOrderLineItems];
+                        updated[index] = { ...updated[index], qty: parseInt(e.target.value) || 1 };
+                        setEditOrderLineItems(updated);
+                      }}
+                      min="1"
+                      required
+                      className="w-20 px-3 py-2 glass-input text-white rounded-lg text-sm"
+                    />
+                    <input
+                      type="text"
+                      value={item.price}
+                      onChange={(e) => {
+                        const updated = [...editOrderLineItems];
+                        updated[index] = { ...updated[index], price: e.target.value };
+                        setEditOrderLineItems(updated);
+                      }}
+                      placeholder="$0"
+                      required
+                      className="w-24 px-3 py-2 glass-input text-white placeholder-white/60 rounded-lg text-sm"
+                    />
+                    {editOrderLineItems.length > 1 && (
+                      <button type="button" onClick={() => setEditOrderLineItems(editOrderLineItems.filter((_, i) => i !== index))} className="p-2 text-red-300 hover:text-red-200">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <div className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
+                <span className="text-white/70 text-sm">Total</span>
+                <span className="text-white text-lg font-semibold">${editOrderLineItems.reduce((sum, item) => {
+                  const price = parseFloat(item.price.replace('$', '')) || 0;
+                  return sum + (price * item.qty);
+                }, 0).toFixed(2)}</span>
+              </div>
+              <button
+                type="submit"
+                disabled={processing}
+                className="w-full px-6 py-3 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/30 rounded-lg text-white font-semibold transition disabled:opacity-50"
+              >
+                {processing ? 'Updating...' : 'Update Order'}
+              </button>
+            </form>
           </div>
         </div>
       )}

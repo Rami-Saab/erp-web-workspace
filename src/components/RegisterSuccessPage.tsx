@@ -1,4 +1,3 @@
-import React from 'react';
 import { CheckCircle, ArrowRight } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 

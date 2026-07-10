@@ -1,19 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Lock, Mail, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { useAuth } from '../hooks/useAuth';
 
 interface LoginPageProps {
   onLogin: (email: string, name: string) => void;
-  onNavigateToRegister: () => void;
-  onNavigateToForgotPassword: () => void;
 }
 
-export function LoginPage({ onLogin, onNavigateToRegister, onNavigateToForgotPassword }: LoginPageProps) {
+export function LoginPage({ onLogin }: LoginPageProps) {
+  const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/dashboard');
+    }
+  }, [isAuthenticated, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,10 +40,9 @@ export function LoginPage({ onLogin, onNavigateToRegister, onNavigateToForgotPas
       return;
     }
 
-    setTimeout(() => {
-      onLogin(email, 'User');
-      setIsLoading(false);
-    }, 1000);
+    onLogin(email, 'User');
+    setIsLoading(false);
+    navigate('/dashboard');
   };
 
   return (
@@ -149,22 +156,6 @@ export function LoginPage({ onLogin, onNavigateToRegister, onNavigateToForgotPas
                         {isLoading ? 'Signing in...' : 'Login'}
                       </button>
                     </form>
-
-                    {/* Footer Links */}
-                    <div className="mt-6 flex items-center justify-between text-sm">
-                      <button
-                        onClick={onNavigateToRegister}
-                        className="text-white/70 hover:text-white transition"
-                      >
-                        Create an account
-                      </button>
-                      <button
-                        onClick={onNavigateToForgotPassword}
-                        className="text-blue-400 hover:text-blue-300 transition"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
                   </div>
                 </div>
               </div>

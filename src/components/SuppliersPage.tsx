@@ -20,7 +20,6 @@ import {
   Download,
   FileText,
   FileSpreadsheet,
-  FileType2,
 } from "lucide-react";
 import { CustomSelect } from "./ui/CustomSelect";
 import { getCountries, getCountryCallingCode } from "libphonenumber-js";
@@ -957,11 +956,6 @@ export function SuppliersPage() {
     handleCloseEditSupplierModal();
   };
 
-  const handleViewSupplier = (supplierId: string) => {
-    setSelectedSupplierId(supplierId);
-    setActiveTab("overview");
-  };
-
   const handleEditSupplier = (supplierId: string) => {
     const supplier = suppliers.find((s) => s.id === supplierId);
     if (supplier) {
@@ -970,7 +964,10 @@ export function SuppliersPage() {
   };
 
   const handleDeleteSupplier = (supplierId: string) => {
-    push({ type: "info", text: `Delete ${supplierId} (coming soon)` });
+    if (confirm('Are you sure you want to delete this supplier?')) {
+      setSuppliers((prev) => prev.filter((s) => s.id !== supplierId));
+      push({ type: "success", text: `Supplier ${supplierId} deleted successfully` });
+    }
   };
 
   const handleDownloadSupplier = (supplierId: string) => {
