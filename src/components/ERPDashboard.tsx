@@ -57,6 +57,8 @@ import { PurchaseOrdersPage } from "./PurchaseOrdersPage";
 import { SettingsPage } from "./SettingsPage";
 import { AnalyticsPage } from "./AnalyticsPage";
 import { AuditLogPage } from "./AuditLogPage";
+import { SystemSettingsPage } from "./SystemSettingsPage";
+import { RequireRole } from "./RequireRole";
 
 interface ERPDashboardProps {
   user: { email: string; name: string; avatarUrl?: string | null };
@@ -424,6 +426,7 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
                         { page: 'employees', label: 'Employees', icon: UserCheck },
                         { page: 'reports', label: 'Reports', icon: FileText },
                         { page: 'settings', label: 'Settings', icon: Settings },
+                        { page: 'system-settings', label: 'System Settings', icon: Settings },
                       ]
                         .filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase()))
                         .map(item => (
@@ -449,6 +452,7 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
                         { page: 'employees', label: 'Employees', icon: UserCheck },
                         { page: 'reports', label: 'Reports', icon: FileText },
                         { page: 'settings', label: 'Settings', icon: Settings },
+                        { page: 'system-settings', label: 'System Settings', icon: Settings },
                       ]
                         .filter(item => item.label.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
                         <p className="text-xs text-white/60">No results found</p>
@@ -726,6 +730,19 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
                   <Settings className="w-5 h-5 flex-shrink-0" />
                   <span>Settings</span>
                 </button>
+                <RequireRole allowedRoles={['admin']}>
+                  <button
+                    onClick={() => { setActivePage("system-settings"); setMobileSidebarOpen(false); }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
+                      activePage === "system-settings"
+                        ? "glass-sidebar-btn-active text-white"
+                        : "text-white/80 hover:bg-white/10"
+                    }`}
+                  >
+                    <Settings className="w-5 h-5 flex-shrink-0" />
+                    <span>System Settings</span>
+                  </button>
+                </RequireRole>
                 <button
                   onClick={() => { setActivePage("audit-log"); setMobileSidebarOpen(false); }}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition ${
@@ -922,6 +939,19 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
                 <Settings className="w-5 h-5 flex-shrink-0" />
                 {!sidebarCollapsed && <span>Settings</span>}
               </button>
+              <RequireRole allowedRoles={['admin']}>
+                <button
+                  onClick={() => setActivePage("system-settings")}
+                  className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
+                    activePage === "system-settings"
+                      ? "glass-sidebar-btn-active text-white"
+                      : "text-white/80 hover:bg-white/10"
+                  }`}
+                >
+                  <Settings className="w-5 h-5 flex-shrink-0" />
+                  {!sidebarCollapsed && <span>System Settings</span>}
+                </button>
+              </RequireRole>
               <button
                 onClick={() => setActivePage("audit-log")}
                 className={`w-full flex items-center ${sidebarCollapsed ? 'justify-center' : 'gap-3'} px-${sidebarCollapsed ? '2' : '4'} py-3 rounded-lg transition ${
@@ -1518,6 +1548,11 @@ export function ERPDashboard({ user, onLogout }: ERPDashboardProps) {
             {activePage === "suppliers" && <SuppliersPage />}
             {activePage === "purchase-orders" && <PurchaseOrdersPage />}
             {activePage === "settings" && <SettingsPage />}
+            {activePage === "system-settings" && (
+              <RequireRole allowedRoles={['admin']}>
+                <SystemSettingsPage />
+              </RequireRole>
+            )}
             {activePage === "analytics" && <AnalyticsPage />}
             {activePage === "audit-log" && <AuditLogPage />}
           </div>
